@@ -4,6 +4,7 @@ import sqlite3
 from pathlib import Path
 from db.database import Database
 
+
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 
@@ -43,3 +44,8 @@ def populated_db(db):
         score=2, tier="satellite", entry_low=182.0, entry_high=185.0,
         stop_loss=171.0, target_price=210.0, verdict_summary="Strong buy.", contested=0)
     return db, run_id
+
+
+@pytest.fixture
+def fixture_dir():
+    return Path(__file__).parent / "fixtures"

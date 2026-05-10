@@ -1,0 +1,23 @@
+{
+    "agent": "technical",
+    "run_id": 1,
+    "phase": 1,
+    "score": 7,
+    "summary": "AAPL shows a strong uptrend on the daily chart with price above all major moving averages. RSI at 58 is constructive without being overbought. MACD recently crossed bullish. Key support at $178 (50-DMA), resistance at $195. Entry zone suggested: $180–185 on any pullback to 50-DMA. Momentum remains positive and trend is intact.",
+    "data_confidence": "full",
+    "missing_fields": [],
+    "bull_points": ["Price above 50/100/200 DMA — trend firmly up", "MACD bullish crossover 3 days ago", "RSI at 58 — room to run"],
+    "bear_points": ["Approaching $195 resistance — rejection possible", "Volume on up days slightly below average"],
+    "raw_output": {
+        "trend": "uptrend",
+        "rsi_14": 58,
+        "macd_signal": "bullish_crossover",
+        "support_levels": [178, 172, 165],
+        "resistance_levels": [195, 202, 210],
+        "entry_zone": {"low": 180, "high": 185},
+        "moving_averages": {"ma50": 178.5, "ma100": 172.3, "ma200": 165.1},
+        "volume_trend": "average"
+    },
+    "duration_ms": 2850,
+    "status": "complete"
+}

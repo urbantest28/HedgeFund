@@ -1,0 +1,21 @@
+{
+    "agent": "risk_manager",
+    "run_id": 1,
+    "phase": 2,
+    "score": 7,
+    "summary": "Suggested position size 4% of portfolio given moderate conviction (score 7/10) and current market conditions. Stop-loss at $171 (7.5% below $185 entry midpoint) based on strong support at 200-DMA. Max drawdown scenario -18% (bear case). Correlation with existing holdings: MSFT +0.72 — moderate overlap. Overall risk profile acceptable for satellite position.",
+    "data_confidence": "full",
+    "missing_fields": [],
+    "bull_points": ["4% position keeps total tech exposure within limits", "Stop at $171 has strong technical basis"],
+    "bear_points": ["High MSFT correlation adds concentration risk", "-18% drawdown scenario requires conviction"],
+    "raw_output": {
+        "suggested_position_pct": 4.0,
+        "stop_loss": 171.0,
+        "stop_loss_rationale": "200-DMA and round support level",
+        "max_drawdown_scenario": -18.0,
+        "correlation_with_holdings": {"MSFT": 0.72, "GOOGL": 0.61},
+        "risk_reward_ratio": 2.8
+    },
+    "duration_ms": 2600,
+    "status": "complete"
+}

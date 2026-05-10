@@ -1,0 +1,19 @@
+{
+    "agent": "sentiment",
+    "run_id": 1,
+    "phase": 1,
+    "score": 6,
+    "summary": "News sentiment is moderately positive with 14 of 20 articles bullish around Vision Pro launch coverage. Reddit shows elevated post volume (312 posts last 7 days vs 180 average), net sentiment 62% positive. Notable DD post with 1.2k upvotes argues strong services growth thesis. Institutional narrative broadly positive. No significant negative catalyst found in recent coverage.",
+    "data_confidence": "partial",
+    "missing_fields": ["options_sentiment"],
+    "bull_points": ["14/20 articles positive — broad institutional optimism", "Reddit volume acceleration (+73%) signals growing retail interest", "High-quality DD post with strong upvotes reinforces bull case"],
+    "bear_points": ["6 negative articles cite valuation stretch", "Options data unavailable — put/call ratio unknown"],
+    "raw_output": {
+        "news_sentiment": {"positive": 14, "neutral": 4, "negative": 2, "total": 20},
+        "top_headlines": ["Apple Vision Pro exceeds early sales expectations", "Apple services revenue record Q1"],
+        "reddit": {"total_posts": 312, "sentiment_positive_pct": 62, "notable_dd": "AAPL services thesis — strong moat argument"},
+        "social_momentum": "accelerating"
+    },
+    "duration_ms": 3100,
+    "status": "complete"
+}

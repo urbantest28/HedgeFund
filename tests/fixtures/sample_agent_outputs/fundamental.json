@@ -1,19 +1,36 @@
 {
-  "agent": "fundamental",
-  "phase": 1,
-  "score": 7,
-  "data_confidence": "full",
-  "summary": "Apple demonstrates strong fundamental health with consistent EPS beats, expanding services revenue, and robust free cash flow of $108B. DCF analysis suggests intrinsic value of $195-215 vs current $183.50. Relative valuation shows premium to sector peers on P/E (28.5x vs 24.1x median) justified by superior margins.",
-  "bull_points": [
-    "4 consecutive quarters of EPS beats averaging +2.9% surprise",
-    "Free cash flow $108B — class-leading capital return program",
-    "Services segment growing 12% YoY with 70%+ gross margins"
-  ],
-  "bear_points": [
-    "Hardware revenue flat YoY — growth dependent on services",
-    "China exposure ~18% of revenue — geopolitical risk",
-    "Premium valuation (28.5x PE) limits upside in rate environment"
-  ],
-  "dcf_intrinsic_value": {"bear": 168.0, "base": 195.0, "bull": 215.0},
-  "recommendation": "watch"
+    "agent": "fundamental",
+    "run_id": 1,
+    "phase": 1,
+    "score": 7,
+    "summary": "Apple demonstrates strong fundamental health with consistent EPS beats, expanding services revenue, and robust free cash flow of $108B. DCF analysis suggests intrinsic value of $195–215 vs current $183.50. Relative valuation shows premium to sector peers on P/E (28.5x vs 24.1x median) justified by superior margins and Services moat.",
+    "data_confidence": "full",
+    "missing_fields": [],
+    "bull_points": [
+        "4 consecutive quarters of EPS beats averaging +2.9% surprise",
+        "Free cash flow $108B — class-leading capital return program",
+        "Services segment growing 12% YoY with 70%+ gross margins"
+    ],
+    "bear_points": [
+        "Hardware revenue flat YoY — growth dependent on services",
+        "China exposure ~18% of revenue — geopolitical risk",
+        "Premium valuation (28.5x PE) limits upside in rate environment"
+    ],
+    "raw_output": {
+        "dcf_intrinsic_value": {"bear": 168.0, "base": 195.0, "bull": 215.0},
+        "pe_ratio": 28.5,
+        "ev_ebitda": 22.1,
+        "roe": 147.9,
+        "debt_to_equity": 1.76,
+        "free_cash_flow_yield": 3.8,
+        "peer_comparison": [
+            {"ticker": "MSFT", "pe": 32.1, "ev_ebitda": 24.3},
+            {"ticker": "GOOGL", "pe": 22.4, "ev_ebitda": 16.8},
+            {"ticker": "META", "pe": 24.0, "ev_ebitda": 14.2}
+        ],
+        "valuation_vs_peers": "premium",
+        "key_metrics_note": "ROE elevated due to buyback-driven negative book value"
+    },
+    "duration_ms": 3200,
+    "status": "complete"
 }
