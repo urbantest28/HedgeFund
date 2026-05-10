@@ -12,6 +12,7 @@ def get_logger(module: str, run_id: Optional[int] = None) -> logging.LoggerAdapt
         sh = logging.StreamHandler(sys.stdout)
         sh.setFormatter(fmt)
         log.addHandler(sh)
+        log.propagate = False
         log.setLevel(logging.DEBUG)
     return _RunAdapter(log, module, run_id)
 
@@ -30,6 +31,7 @@ class _RunAdapter(logging.LoggerAdapter):
         return _RunAdapter(self.logger, self._module, run_id)
 
     def to_file(self, run_id: int) -> "_RunAdapter":
+        LOGS_DIR.mkdir(parents=True, exist_ok=True)
         fh_name = f"file_{run_id}"
         if not any(h.name == fh_name for h in self.logger.handlers):
             log_path = LOGS_DIR / f"run_{run_id}.log"
