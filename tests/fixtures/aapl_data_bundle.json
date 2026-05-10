@@ -1,0 +1,104 @@
+{
+  "ticker": "AAPL",
+  "run_id": 1,
+  "fetched_at": "2026-05-10T09:00:00",
+  "data": {
+    "live_price": {"price": 183.50, "source": "massive_market"},
+    "fundamentals": {
+      "pe_ratio": 28.5, "price_to_book": 45.2, "ev_ebitda": 22.1,
+      "price_to_sales": 7.8, "roe": 1.47, "debt_equity": 185.0,
+      "revenue_growth": 0.04, "gross_margin": 0.46,
+      "market_cap": 2800000000000, "sector": "Technology",
+      "industry": "Consumer Electronics", "name": "Apple Inc.",
+      "source": "yfinance"
+    },
+    "income_statement": {
+      "annual": [{"fiscalDateEnding": "2025-09-30", "totalRevenue": "391035000000",
+                  "grossProfit": "180683000000", "netIncome": "93736000000",
+                  "ebitda": "130000000000", "eps": "6.11"}],
+      "quarterly": [], "source": "alpha_vantage", "rate_limited": false
+    },
+    "balance_sheet": {
+      "annual": [{"fiscalDateEnding": "2025-09-30", "totalAssets": "364980000000",
+                  "totalLiabilities": "308030000000",
+                  "totalShareholderEquity": "56950000000"}],
+      "quarterly": [], "source": "alpha_vantage", "rate_limited": false
+    },
+    "cash_flow": {
+      "annual": [{"fiscalDateEnding": "2025-09-30",
+                  "operatingCashflow": "118254000000",
+                  "capitalExpenditures": "9959000000",
+                  "freeCashFlow": "108295000000"}],
+      "quarterly": [], "source": "alpha_vantage", "rate_limited": false
+    },
+    "earnings": {
+      "quarterly": [
+        {"fiscalDateEnding": "2026-03-31", "reportedEPS": "1.65",
+         "estimatedEPS": "1.61", "surprise": "0.04", "surprisePercentage": "2.48"},
+        {"fiscalDateEnding": "2025-12-31", "reportedEPS": "2.40",
+         "estimatedEPS": "2.35", "surprise": "0.05", "surprisePercentage": "2.13"},
+        {"fiscalDateEnding": "2025-09-30", "reportedEPS": "0.97",
+         "estimatedEPS": "0.94", "surprise": "0.03", "surprisePercentage": "3.19"},
+        {"fiscalDateEnding": "2025-06-30", "reportedEPS": "1.53",
+         "estimatedEPS": "1.48", "surprise": "0.05", "surprisePercentage": "3.38"}
+      ],
+      "source": "alpha_vantage", "rate_limited": false
+    },
+    "news": {
+      "articles": [
+        {"title": "Apple beats Q2 earnings estimates on services growth",
+         "published_utc": "2026-05-01T18:00:00Z",
+         "article_url": "https://example.com/apple-q2",
+         "insights": [{"sentiment": "positive",
+                        "sentiment_reasoning": "EPS beat by 2.48%", "ticker": "AAPL"}],
+         "tickers": ["AAPL"]}
+      ],
+      "count": 1, "source": "massive_market", "rate_limited": false
+    },
+    "reddit": {
+      "posts": [
+        {"title": "AAPL earnings beat — bullish for rest of year",
+         "score": 2500, "subreddit": "wallstreetbets",
+         "sentiment": "positive", "num_comments": 342,
+         "created_utc": 1746873600.0}
+      ],
+      "total_posts": 1, "positive_count": 1, "negative_count": 0,
+      "source": "reddit"
+    },
+    "macro": {
+      "fed_funds_rate": 5.33, "cpi": 315.2, "gdp": 28000.0,
+      "unemployment": 3.9, "source": "fred"
+    },
+    "sec_filings": {
+      "filings": [
+        {"entity_name": "Apple Inc.", "file_date": "2025-11-01",
+         "period": "2025-09-30", "accession": "0000320193-25-000001",
+         "cik": "320193", "form_type": "10-K"}
+      ],
+      "source": "sec_edgar"
+    },
+    "ohlcv": {
+      "records": [
+        {"Date": "2025-05-10", "Open": 181.0, "High": 184.5, "Low": 180.5, "Close": 183.5, "Volume": 55000000},
+        {"Date": "2025-05-09", "Open": 179.0, "High": 182.0, "Low": 178.5, "Close": 181.0, "Volume": 48000000}
+      ],
+      "source": "yfinance"
+    },
+    "analyst_ratings": {"buy": 32, "hold": 8, "sell": 2, "price_target": 210.0, "source": "massive_market"},
+    "peers": ["MSFT", "GOOGL", "META", "NVDA"]
+  },
+  "manifest": {
+    "live_price":      {"value": 183.50, "source": "massive_market", "status": "ok",     "note": null},
+    "pe_ratio":        {"value": 28.5,   "source": "yfinance",        "status": "ok",     "note": null},
+    "income_statement":{"value": true,   "source": "alpha_vantage",   "status": "ok",     "note": null},
+    "balance_sheet":   {"value": true,   "source": "alpha_vantage",   "status": "ok",     "note": null},
+    "cash_flow":       {"value": true,   "source": "alpha_vantage",   "status": "ok",     "note": null},
+    "earnings_history":{"value": true,   "source": "alpha_vantage",   "status": "ok",     "note": null},
+    "news":            {"value": true,   "source": "massive_market",  "status": "partial","note": "1 article, expected 20"},
+    "reddit_posts":    {"value": true,   "source": "reddit",          "status": "ok",     "note": null},
+    "fed_funds_rate":  {"value": 5.33,   "source": "fred",            "status": "ok",     "note": null},
+    "ohlcv":           {"value": true,   "source": "yfinance",        "status": "ok",     "note": null},
+    "sec_10k":         {"value": true,   "source": "sec_edgar",       "status": "ok",     "note": null}
+  },
+  "data_confidence": "partial"
+}

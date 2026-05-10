@@ -1,0 +1,19 @@
+{
+  "agent": "fundamental",
+  "phase": 1,
+  "score": 7,
+  "data_confidence": "full",
+  "summary": "Apple demonstrates strong fundamental health with consistent EPS beats, expanding services revenue, and robust free cash flow of $108B. DCF analysis suggests intrinsic value of $195-215 vs current $183.50. Relative valuation shows premium to sector peers on P/E (28.5x vs 24.1x median) justified by superior margins.",
+  "bull_points": [
+    "4 consecutive quarters of EPS beats averaging +2.9% surprise",
+    "Free cash flow $108B — class-leading capital return program",
+    "Services segment growing 12% YoY with 70%+ gross margins"
+  ],
+  "bear_points": [
+    "Hardware revenue flat YoY — growth dependent on services",
+    "China exposure ~18% of revenue — geopolitical risk",
+    "Premium valuation (28.5x PE) limits upside in rate environment"
+  ],
+  "dcf_intrinsic_value": {"bear": 168.0, "base": 195.0, "bull": 215.0},
+  "recommendation": "watch"
+}
