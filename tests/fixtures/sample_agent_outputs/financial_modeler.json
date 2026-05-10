@@ -1,0 +1,25 @@
+{
+    "agent": "financial_modeler",
+    "run_id": 1,
+    "phase": 2,
+    "score": 7,
+    "summary": "3-statement model projects revenue CAGR of 8.2% over 5 years driven by Services. DCF intrinsic value: base $198, bull $225, bear $165. At current $183, base case offers 8.2% upside. Expected returns: 6m +5–12%, 1y +8–22%, 2y +15–35%, 5y +40–85%, 10y +80–150%. Discount rate 9.5%. Terminal growth rate 3%. Excel model saved.",
+    "data_confidence": "partial",
+    "missing_fields": ["cash_flow_detailed"],
+    "bull_points": ["Base DCF $198 — meaningful upside at $183 entry", "Services CAGR 15% in projections drives multiple expansion"],
+    "bear_points": ["Bear DCF $165 implies 10% downside", "Cash flow detailed breakdown missing — projections less precise"],
+    "raw_output": {
+        "dcf": {"base": 198, "bull": 225, "bear": 165, "discount_rate": 9.5, "terminal_growth": 3.0},
+        "revenue_cagr_5y": 8.2,
+        "expected_returns": {
+            "6m": {"bear": 5, "base": 8, "bull": 12},
+            "1y": {"bear": 8, "base": 15, "bull": 22},
+            "2y": {"bear": 15, "base": 25, "bull": 35},
+            "5y": {"bear": 40, "base": 62, "bull": 85},
+            "10y": {"bear": 80, "base": 115, "bull": 150}
+        },
+        "model_path": "reports_output/AAPL_20260510_model.xlsx"
+    },
+    "duration_ms": 5200,
+    "status": "complete"
+}

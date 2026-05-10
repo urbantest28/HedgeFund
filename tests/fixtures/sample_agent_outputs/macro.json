@@ -1,0 +1,22 @@
+{
+    "agent": "macro",
+    "run_id": 1,
+    "phase": 1,
+    "score": 6,
+    "summary": "Fed funds rate at 5.25–5.5% is a headwind for growth multiples but market has priced in 2–3 cuts in 2026. CPI trending down to 3.1% — disinflation supportive of eventual rate relief. GDP growth 2.1% — mild slowdown but not recessionary. Tech sector benefits from rate cut expectations. USD strength modest headwind for Apple's international revenue. Net macro: cautiously supportive.",
+    "data_confidence": "full",
+    "missing_fields": [],
+    "bull_points": ["Rate cut expectations supportive of premium valuations", "Disinflation trend intact — CPI 3.1%", "GDP avoids recession — consumer spending resilient"],
+    "bear_points": ["High rates still headwind for multiple expansion", "USD strength compresses international revenue"],
+    "raw_output": {
+        "fed_funds_rate": 5.375,
+        "cpi_yoy": 3.1,
+        "gdp_growth_qoq": 2.1,
+        "unemployment": 3.9,
+        "rate_cut_expectations": "2-3 cuts priced for 2026",
+        "sector_regime": "tech_favorable",
+        "fx_exposure_note": "AAPL ~60% international revenue — USD headwind"
+    },
+    "duration_ms": 2200,
+    "status": "complete"
+}

@@ -1,0 +1,19 @@
+{
+    "agent": "earnings_reviewer",
+    "run_id": 1,
+    "phase": 1,
+    "score": 8,
+    "summary": "AAPL beat EPS estimates in 3 of last 4 quarters, most recently by $0.08 (5.4%). Revenue beat by 1.2% last quarter. Services segment growing 15% YoY — management guided 'continued strong momentum.' Q&A showed analyst pushback on China exposure, management response confident. No transcript available this run — analysis based on reported financials only. Overall earnings trend positive.",
+    "data_confidence": "partial",
+    "missing_fields": ["earnings_transcript"],
+    "bull_points": ["3/4 quarters beat EPS — consistent outperformance", "Services +15% YoY — high-margin growth driver", "Management confidence on services guide"],
+    "bear_points": ["China revenue risk flagged by multiple analysts", "No transcript — management tone unverified this run"],
+    "raw_output": {
+        "beat_miss_history": [{"quarter": "Q1 FY26", "eps_beat": 0.08, "rev_beat_pct": 1.2}, {"quarter": "Q4 FY25", "eps_beat": 0.05, "rev_beat_pct": -0.3}, {"quarter": "Q3 FY25", "eps_beat": 0.12, "rev_beat_pct": 2.1}, {"quarter": "Q2 FY25", "eps_beat": -0.02, "rev_beat_pct": 0.8}],
+        "transcript_available": false,
+        "guidance_tone": "positive",
+        "services_growth_yoy": 15.2
+    },
+    "duration_ms": 3400,
+    "status": "complete"
+}

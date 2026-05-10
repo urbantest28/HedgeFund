@@ -1,0 +1,20 @@
+{
+    "agent": "thesis_validator",
+    "run_id": 1,
+    "phase": 2,
+    "score": 9,
+    "summary": "AAPL directly matches active thesis #3 'Big Tech Services Monetisation' — ticker explicitly listed. Additionally aligns with thesis #7 'AI Hardware Integration' by sector. No conflicts with existing theses. Match type: direct ticker match. Thesis alignment strong. Recommend linking to thesis #3 in watchlist entry.",
+    "data_confidence": "full",
+    "missing_fields": [],
+    "bull_points": ["Direct ticker match to active thesis #3", "Sector alignment with thesis #7 provides additional support"],
+    "bear_points": [],
+    "raw_output": {
+        "matched_thesis_id": 3,
+        "matched_thesis_name": "Big Tech Services Monetisation",
+        "match_type": "ticker",
+        "secondary_match": {"thesis_id": 7, "match_type": "sector"},
+        "conflicts": []
+    },
+    "duration_ms": 1800,
+    "status": "complete"
+}
