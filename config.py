@@ -1,5 +1,6 @@
 from pathlib import Path
 from dotenv import load_dotenv
+from typing import Optional
 import os
 
 load_dotenv()
@@ -15,7 +16,8 @@ REDDIT_CLIENT_ID      = os.getenv("REDDIT_CLIENT_ID", "")
 REDDIT_CLIENT_SECRET  = os.getenv("REDDIT_CLIENT_SECRET", "")
 REDDIT_USER_AGENT     = os.getenv("REDDIT_USER_AGENT", "hedgefund-analyser/1.0")
 NTFY_TOPIC            = os.getenv("NTFY_TOPIC", "")
-DASHBOARD_TRADES_DB_PATH = os.getenv("DASHBOARD_TRADES_DB_PATH", "")
+_trades_db_raw = os.getenv("DASHBOARD_TRADES_DB_PATH", "")
+DASHBOARD_TRADES_DB_PATH = Path(_trades_db_raw) if _trades_db_raw else None
 
 PHASE1_PROVIDER = os.getenv("PHASE1_PROVIDER", "gemini")
 PHASE1_MODEL    = os.getenv("PHASE1_MODEL", "gemini-2.0-flash")
@@ -37,5 +39,8 @@ MASSIVE_MARKET_BASE_URL = "https://api.massive.com"
 ALPHA_VANTAGE_BASE_URL  = "https://www.alphavantage.co/query"
 SEC_EDGAR_BASE_URL      = "https://data.sec.gov"
 
-for _d in (CACHE_DIR, UPLOADS_DIR, REPORTS_DIR, LOGS_DIR, DEBUG_BUNDLES_DIR, DB_PATH.parent):
-    _d.mkdir(parents=True, exist_ok=True)
+def init_dirs() -> None:
+    for _d in (CACHE_DIR, UPLOADS_DIR, REPORTS_DIR, LOGS_DIR, DEBUG_BUNDLES_DIR, DB_PATH.parent):
+        _d.mkdir(parents=True, exist_ok=True)
+
+init_dirs()
