@@ -1,0 +1,27 @@
+# Secrets
+.env
+
+# Generated output
+cache/
+debug/bundles/
+logs/
+reports_output/
+uploads/
+
+# Database
+*.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# Node (if any tooling added later)
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
