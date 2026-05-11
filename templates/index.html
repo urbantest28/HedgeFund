@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HedgeFund Analyser</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            surface: '#0f1117',
+            card: '#1a1d27',
+            border: '#2a2d3a',
+            accent: '#6366f1',
+            success: '#22c55e',
+            danger: '#ef4444',
+            warn: '#f59e0b',
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body class="bg-surface text-gray-100 min-h-screen font-mono">
+
+  <!-- Header -->
+  <header class="border-b border-border px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 bg-accent rounded-lg flex items-center justify-center text-white font-bold text-sm">HF</div>
+      <span class="text-lg font-semibold tracking-tight">HedgeFund Analyser</span>
+    </div>
+    <div class="flex gap-4 text-sm text-gray-400">
+      <button onclick="showTab('analyse')" id="tab-analyse" class="tab-btn active">Analyse</button>
+      <button onclick="showTab('watchlist')" id="tab-watchlist" class="tab-btn">Watchlist</button>
+      <button onclick="showTab('runs')" id="tab-runs" class="tab-btn">Runs</button>
+    </div>
+  </header>
+
+  <!-- Analyse Tab -->
+  <div id="pane-analyse" class="tab-pane p-6 max-w-5xl mx-auto">
+
+    <!-- Input panel -->
+    <div class="bg-card border border-border rounded-xl p-6 mb-6">
+      <h2 class="text-sm text-gray-400 uppercase tracking-widest mb-4">New Analysis</h2>
+      <div class="flex gap-3">
+        <input id="ticker-input" type="text" placeholder="AAPL"
+          class="flex-1 bg-surface border border-border rounded-lg px-4 py-3 text-lg uppercase tracking-widest
+                 focus:outline-none focus:border-accent placeholder-gray-600"
+          maxlength="10" />
+        <button id="analyse-btn" onclick="startAnalysis()"
+          class="px-8 py-3 bg-accent hover:bg-indigo-500 text-white rounded-lg font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+          Analyse
+        </button>
+      </div>
+      <p class="text-xs text-gray-500 mt-2">Enter a stock ticker. Analysis takes 3–5 minutes.</p>
+    </div>
+
+    <!-- Live progress panel (hidden until analysis starts) -->
+    <div id="progress-panel" class="hidden">
+
+      <!-- Run header -->
+      <div class="bg-card border border-border rounded-xl p-5 mb-4 flex items-center justify-between">
+        <div>
+          <span id="run-ticker" class="text-2xl font-bold tracking-widest"></span>
+          <span id="run-id-badge" class="ml-3 text-xs text-gray-500 bg-surface px-2 py-1 rounded">run #–</span>
+        </div>
+        <div id="run-status-badge" class="text-xs px-3 py-1 rounded-full bg-yellow-900 text-yellow-300">Running</div>
+      </div>
+
+      <!-- Phase 1 -->
+      <div class="phase-card bg-card border border-border rounded-xl p-5 mb-4">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="font-semibold text-sm">Phase 1 — Data Analysts <span class="text-gray-500">(Gemini)</span></h3>
+          <span id="p1-status" class="phase-status text-xs text-gray-500">Waiting</span>
+        </div>
+        <div id="p1-agents" class="grid grid-cols-5 gap-2"></div>
+      </div>
+
+      <!-- Phase 2 -->
+      <div class="phase-card bg-card border border-border rounded-xl p-5 mb-4">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="font-semibold text-sm">Phase 2 — Assessment <span class="text-gray-500">(Gemini)</span></h3>
+          <span id="p2-status" class="phase-status text-xs text-gray-500">Waiting</span>
+        </div>
+        <div id="p2-agents" class="grid grid-cols-3 gap-2"></div>
+      </div>
+
+      <!-- Phase 3 — Debate -->
+      <div class="phase-card bg-card border border-border rounded-xl p-5 mb-4">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="font-semibold text-sm">Phase 3 — Bull vs Bear Debate <span class="text-gray-500">(Claude Opus)</span></h3>
+          <span id="p3-status" class="phase-status text-xs text-gray-500">Waiting</span>
+        </div>
+        <div id="debate-feed" class="space-y-3 max-h-96 overflow-y-auto"></div>
+        <div id="debate-summary" class="hidden mt-3 pt-3 border-t border-border text-sm"></div>
+      </div>
+
+      <!-- Phase 4 -->
+      <div class="phase-card bg-card border border-border rounded-xl p-5 mb-4">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="font-semibold text-sm">Phase 4 — Portfolio Manager <span class="text-gray-500">(Claude Opus)</span></h3>
+          <span id="p4-status" class="phase-status text-xs text-gray-500">Waiting</span>
+        </div>
+        <div id="pm-output"></div>
+      </div>
+
+      <!-- Verdict card -->
+      <div id="verdict-card" class="hidden bg-card border-2 rounded-xl p-6 mb-4">
+        <div class="flex items-start justify-between mb-4">
+          <div>
+            <div id="verdict-label" class="text-3xl font-bold"></div>
+            <div id="verdict-tier" class="text-sm text-gray-400 mt-1"></div>
+          </div>
+          <div id="verdict-score" class="text-5xl font-bold text-right"></div>
+        </div>
+        <div class="grid grid-cols-3 gap-4 mb-4 text-sm">
+          <div>
+            <div class="text-gray-500 text-xs mb-1">Entry Zone</div>
+            <div id="verdict-entry" class="font-semibold"></div>
+          </div>
+          <div>
+            <div class="text-gray-500 text-xs mb-1">Stop Loss</div>
+            <div id="verdict-stop" class="font-semibold text-red-400"></div>
+          </div>
+          <div>
+            <div class="text-gray-500 text-xs mb-1">Target</div>
+            <div id="verdict-target" class="font-semibold text-green-400"></div>
+          </div>
+        </div>
+        <div id="verdict-returns" class="mb-4"></div>
+        <div id="verdict-reasoning" class="text-sm text-gray-300 border-t border-border pt-4 mt-2"></div>
+        <div id="verdict-risks" class="mt-3"></div>
+        <div id="verdict-catalysts" class="mt-3"></div>
+        <div id="verdict-contested" class="hidden mt-3 text-sm text-yellow-400 font-semibold">⚠ Contested — Bull and Bear did not converge</div>
+      </div>
+
+      <!-- Abort card -->
+      <div id="abort-card" class="hidden bg-red-950 border border-red-800 rounded-xl p-5 mb-4">
+        <div class="text-red-400 font-bold mb-2">Pipeline Aborted</div>
+        <div id="abort-reason" class="text-sm text-gray-300"></div>
+      </div>
+
+      <!-- Upload zone (shown when paused) -->
+      <div id="upload-zone" class="hidden bg-card border border-border rounded-xl p-5 mb-4">
+        <h3 class="font-semibold text-sm mb-3 text-yellow-400">⏸ Run Paused — Data Required</h3>
+        <pre id="needed-md" class="text-xs text-gray-400 whitespace-pre-wrap mb-4"></pre>
+        <div id="drop-area"
+          class="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-accent transition-colors"
+          ondragover="event.preventDefault()" ondrop="handleDrop(event)">
+          <p class="text-gray-400 text-sm">Drop files here or <label class="text-accent cursor-pointer underline">
+            browse<input id="file-input" type="file" class="hidden" onchange="handleFileSelect(event)" multiple /></label></p>
+        </div>
+        <button id="resume-btn" onclick="resumeRun()" disabled
+          class="mt-4 px-6 py-2 bg-accent text-white rounded-lg text-sm disabled:opacity-40 disabled:cursor-not-allowed">
+          Resume Run
+        </button>
+      </div>
+
+    </div><!-- /progress-panel -->
+  </div><!-- /pane-analyse -->
+
+  <!-- Watchlist Tab -->
+  <div id="pane-watchlist" class="tab-pane hidden p-6 max-w-5xl mx-auto">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-semibold">Watchlist</h2>
+      <button onclick="loadWatchlist()" class="text-xs text-accent hover:underline">Refresh</button>
+    </div>
+    <div id="watchlist-table" class="bg-card border border-border rounded-xl overflow-hidden">
+      <p class="text-gray-500 text-sm text-center py-8">Loading…</p>
+    </div>
+  </div>
+
+  <!-- Runs Tab -->
+  <div id="pane-runs" class="tab-pane hidden p-6 max-w-5xl mx-auto">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-semibold">Recent Runs</h2>
+      <button onclick="loadRuns()" class="text-xs text-accent hover:underline">Refresh</button>
+    </div>
+    <div id="runs-table" class="bg-card border border-border rounded-xl overflow-hidden">
+      <p class="text-gray-500 text-sm text-center py-8">Loading…</p>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
