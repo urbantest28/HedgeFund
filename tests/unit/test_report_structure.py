@@ -50,10 +50,13 @@ def test_missing_fields_dont_crash(tmp_path, sample_run_data, monkeypatch):
     sample_run_data["stop_loss"] = None
     sample_run_data["target_price"] = None
     sample_run_data["pm_output"]["key_risks"] = []
+    sample_run_data["pm_output"]["reasoning"] = None
+    sample_run_data["pm_output"]["key_catalysts"] = []
     gen = ReportGenerator()
     path = gen.generate(sample_run_data)
     html = path.read_text(encoding="utf-8")
     assert "None" not in html
+    assert "—" in html
 
 
 def test_contested_warning_visible_when_contested(tmp_path, sample_run_data, monkeypatch):
