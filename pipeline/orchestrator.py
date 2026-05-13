@@ -291,7 +291,7 @@ async def _run_pipeline(
             report_path = ReportGenerator().generate(run_data)
             await queue.put({"event": "report_ready", "path": str(report_path)})
         except Exception as e:
-            agent_log.warning(f"Report generation failed: {e}")
+            agent_log.warning(f"Report generation failed: {e}", exc_info=True)
 
         total_ms = int((time.monotonic() - t_start) * 1000)
         await queue.put({
