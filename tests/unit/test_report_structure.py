@@ -33,3 +33,40 @@ def test_generator_returns_path(tmp_path, sample_run_data, monkeypatch):
     assert path.exists()
     assert path.suffix == ".html"
     assert "AAPL" in path.name
+
+
+def test_all_sections_render(tmp_path, sample_run_data, monkeypatch):
+    monkeypatch.setattr("reports.generator.REPORTS_DIR", tmp_path)
+    gen = ReportGenerator()
+    path = gen.generate(sample_run_data)
+    html = path.read_text(encoding="utf-8")
+    for i in range(1, 9):
+        assert f'id="section-{i}"' in html, f"Section {i} missing"
+
+
+def test_missing_fields_dont_crash(tmp_path, sample_run_data, monkeypatch):
+    monkeypatch.setattr("reports.generator.REPORTS_DIR", tmp_path)
+    sample_run_data["entry_low"] = None
+    sample_run_data["stop_loss"] = None
+    sample_run_data["target_price"] = None
+    sample_run_data["pm_output"]["key_risks"] = []
+    gen = ReportGenerator()
+    path = gen.generate(sample_run_data)
+    html = path.read_text(encoding="utf-8")
+    assert "None" not in html
+
+
+def test_contested_warning_visible_when_contested(tmp_path, sample_run_data, monkeypatch):
+    monkeypatch.setattr("reports.generator.REPORTS_DIR", tmp_path)
+    sample_run_data["contested"] = True
+    gen = ReportGenerator()
+    html = gen.generate(sample_run_data).read_text(encoding="utf-8")
+    assert "Contested" in html
+
+
+def test_no_contested_warning_when_consensus(tmp_path, sample_run_data, monkeypatch):
+    monkeypatch.setattr("reports.generator.REPORTS_DIR", tmp_path)
+    sample_run_data["contested"] = False
+    gen = ReportGenerator()
+    html = gen.generate(sample_run_data).read_text(encoding="utf-8")
+    assert 'class="contested-warning"' not in html

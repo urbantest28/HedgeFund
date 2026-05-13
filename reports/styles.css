@@ -1,0 +1,32 @@
+body { font-family: -apple-system, Segoe UI, sans-serif; max-width: 900px; margin: 40px auto; color: #1a1d27; line-height: 1.5; padding: 0 20px; }
+section { margin-bottom: 48px; padding-bottom: 24px; border-bottom: 1px solid #e5e7eb; }
+h1 { font-size: 2.5rem; margin-bottom: 4px; }
+h2 { font-size: 1.5rem; color: #6366f1; margin-top: 0; }
+h3 { font-size: 1.1rem; }
+.cover { text-align: center; }
+.score-badge { display: inline-block; width: 64px; height: 64px; line-height: 64px; border-radius: 50%; font-size: 2rem; font-weight: bold; color: white; }
+.score-1 { background: #16a34a; } .score-2 { background: #22c55e; }
+.score-3 { background: #f59e0b; } .score-4 { background: #ef4444; } .score-5 { background: #7f1d1d; }
+.tier { font-size: 1.25rem; font-weight: 600; }
+.cover-meta { display: grid; grid-template-columns: max-content auto; gap: 4px 16px; max-width: 400px; margin: 16px auto; text-align: left; }
+.cover-meta dt { font-weight: 600; color: #6b7280; }
+.contested-warning { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px; margin: 16px 0; }
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 6px 10px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+th { background: #f9fafb; font-weight: 600; }
+.status-ok { color: #16a34a; } .status-partial { color: #f59e0b; } .status-missing { color: #ef4444; }
+.confidence { font-size: 0.75rem; padding: 2px 6px; border-radius: 4px; margin-left: 8px; }
+.confidence-full { background: #d1fae5; color: #065f46; }
+.confidence-partial { background: #fef3c7; color: #92400e; }
+.confidence-minimal { background: #fee2e2; color: #991b1b; }
+.debate-round { background: #f9fafb; border-left: 3px solid #6366f1; padding: 12px; margin-bottom: 12px; border-radius: 4px; }
+.bull-arg { margin-bottom: 8px; }
+.verdict-summary { font-size: 1.25rem; padding: 12px; margin-bottom: 16px; border-radius: 6px; }
+.verdict-watchlist { background: #d1fae5; color: #065f46; }
+.verdict-avoid { background: #fee2e2; color: #991b1b; }
+.returns-table td:nth-child(n+2) { text-align: right; }
+.excel-link { display: inline-block; padding: 6px 12px; background: #16a34a; color: white; text-decoration: none; border-radius: 4px; margin-top: 8px; }
+.risks li { color: #991b1b; }
+.catalysts li { color: #065f46; }
+.muted { color: #9ca3af; font-style: italic; }
+.report-footer { text-align: center; color: #9ca3af; font-size: 0.875rem; margin-top: 48px; }
