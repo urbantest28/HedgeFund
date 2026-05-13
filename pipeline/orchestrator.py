@@ -24,6 +24,7 @@ from agents.portfolio_manager import PortfolioManagerAgent
 from data.aggregator import DataAggregator
 from db.database import Database
 from pipeline.debate import run_debate
+from reports.generator import ReportGenerator
 from config import BASE_DIR, DEBUG_BUNDLES_DIR
 from logger import get_logger
 
@@ -268,6 +269,29 @@ async def _run_pipeline(
                 contested=1 if contested else 0,
             )
             agent_log.info(f"Watchlist entry written | ticker: {ticker} | score: {score} | tier: {tier}")
+
+        # Auto-generate HTML report
+        try:
+            run_data = {
+                "run_id": run_id,
+                "ticker": ticker,
+                "score": raw.get("score", score),
+                "tier": tier,
+                "verdict": verdict,
+                "entry_low": entry_low,
+                "entry_high": entry_high,
+                "stop_loss": stop_loss,
+                "target_price": target_price,
+                "bundle": bundle,
+                "agent_outputs": db.get_agent_outputs(run_id),
+                "debate_rounds": db.get_debate_rounds(run_id),
+                "pm_output": raw,
+                "contested": contested,
+            }
+            report_path = ReportGenerator().generate(run_data)
+            await queue.put({"event": "report_ready", "path": str(report_path)})
+        except Exception as e:
+            agent_log.warning(f"Report generation failed: {e}")
 
         total_ms = int((time.monotonic() - t_start) * 1000)
         await queue.put({
