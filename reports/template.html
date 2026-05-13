@@ -103,7 +103,7 @@
     <dt>Target</dt><dd>{% if target_price %}${{ "%.2f"|format(target_price) }}{% else %}—{% endif %}</dd>
   </dl>
   <h3>Reasoning</h3>
-  <p>{{ pm_output.reasoning }}</p>
+  <p>{{ pm_output.reasoning or "—" }}</p>
   <h3>Expected Returns</h3>
   {% if pm_output.expected_returns %}
   <table class="returns-table">
@@ -111,9 +111,9 @@
     <tbody>
     {% for h in ["1m", "3m", "12m"] %}
       <tr><td>{{ h }}</td>
-        <td>{{ pm_output.expected_returns.bear.get(h, "—") }}%</td>
-        <td>{{ pm_output.expected_returns.base.get(h, "—") }}%</td>
-        <td>{{ pm_output.expected_returns.bull.get(h, "—") }}%</td>
+        <td>{% if pm_output.expected_returns.bear.get(h) is not none %}{{ pm_output.expected_returns.bear.get(h) }}%{% else %}—{% endif %}</td>
+        <td>{% if pm_output.expected_returns.base.get(h) is not none %}{{ pm_output.expected_returns.base.get(h) }}%{% else %}—{% endif %}</td>
+        <td>{% if pm_output.expected_returns.bull.get(h) is not none %}{{ pm_output.expected_returns.bull.get(h) }}%{% else %}—{% endif %}</td>
       </tr>
     {% endfor %}
     </tbody>
@@ -131,7 +131,7 @@
   <dl>
     <dt>Analyst Consensus</dt><dd>{{ bundle.get("analyst_consensus", "—") }}</dd>
     <dt>Next Earnings</dt><dd>{{ bundle.get("next_earnings_date", "—") }}</dd>
-    <dt>Short Interest</dt><dd>{{ bundle.get("short_interest_pct", "—") }}%</dd>
+    <dt>Short Interest</dt><dd>{% if bundle.get("short_interest_pct") is not none %}{{ bundle.get("short_interest_pct") }}%{% else %}—{% endif %}</dd>
     <dt>Insider Activity (last 90d)</dt><dd>{{ bundle.get("insider_summary", "—") }}</dd>
   </dl>
 </section>
@@ -144,7 +144,7 @@
       <thead><tr><th>Ticker</th><th>Score Given</th><th>Outcome</th><th>Return</th></tr></thead>
       <tbody>
       {% for h in bundle.fund_history %}
-        <tr><td>{{ h.ticker }}</td><td>{{ h.score }}</td><td>{{ h.outcome }}</td><td>{{ h.return_pct }}%</td></tr>
+        <tr><td>{{ h.ticker }}</td><td>{{ h.score }}</td><td>{{ h.outcome }}</td><td>{% if h.return_pct is not none %}{{ h.return_pct }}%{% else %}—{% endif %}</td></tr>
       {% endfor %}
       </tbody>
     </table>
