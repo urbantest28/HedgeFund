@@ -45,5 +45,6 @@ class ReportGenerator:
             "agent_outputs": run_data["agent_outputs"],
             "debate_rounds": run_data["debate_rounds"],
             "pm_output": run_data["pm_output"],
+            "contested": run_data.get("contested", False),
             "generated_at": datetime.now().isoformat(timespec="seconds"),
         }

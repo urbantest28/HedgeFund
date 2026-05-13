@@ -1,3 +1,160 @@
 <!doctype html>
-<html><head><title>{{ ticker }} Report</title></head>
-<body><h1>{{ ticker }} — {{ verdict }} ({{ tier }})</h1></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{{ ticker }} — HedgeFund Report ({{ generated_at[:10] }})</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- SECTION 1 — Cover -->
+<section id="section-1" class="cover">
+  <h1>{{ ticker }}</h1>
+  <div class="score-badge score-{{ score }}">{{ score }}</div>
+  <p class="tier">{{ tier }} — {{ verdict }}</p>
+  <dl class="cover-meta">
+    <dt>Sector</dt><dd>{{ bundle.get("sector", "—") }}</dd>
+    <dt>Current Price</dt><dd>{{ "$%.2f"|format(bundle.get("current_price", 0)) if bundle.get("current_price") else "—" }}</dd>
+    <dt>Market Cap</dt><dd>{{ bundle.get("market_cap_display", "—") }}</dd>
+    <dt>Analysis Date</dt><dd>{{ generated_at[:10] }}</dd>
+    <dt>Run ID</dt><dd>#{{ run_id }}</dd>
+  </dl>
+  {% if contested %}
+    <div class="contested-warning">⚠ Contested — Bull and Bear did not converge</div>
+  {% endif %}
+</section>
+
+<!-- SECTION 2 — Data Quality -->
+<section id="section-2" class="data-quality">
+  <h2>Data Quality</h2>
+  <table>
+    <thead><tr><th>Field</th><th>Source</th><th>Status</th></tr></thead>
+    <tbody>
+    {% for field, info in bundle.get("manifest", {}).items() %}
+      <tr class="status-{{ info.status }}">
+        <td>{{ field }}</td>
+        <td>{{ info.source or "—" }}</td>
+        <td>{{ info.status }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<!-- SECTION 3 — Phase 1 Agent Reports -->
+<section id="section-3" class="phase1">
+  <h2>Phase 1 — Data Analysts</h2>
+  {% for agent in agent_outputs if agent.phase == 1 %}
+    <div class="agent-report agent-{{ agent.agent }}">
+      <h3>{{ agent.agent|title }} — {{ agent.score }}/10
+        <span class="confidence confidence-{{ agent.data_confidence }}">{{ agent.data_confidence }}</span>
+      </h3>
+      <p>{{ agent.summary }}</p>
+      {% if agent.bull_points %}
+        <h4>Bull</h4>
+        <ul>{% for p in agent.bull_points %}<li>{{ p }}</li>{% endfor %}</ul>
+      {% endif %}
+      {% if agent.bear_points %}
+        <h4>Bear</h4>
+        <ul>{% for p in agent.bear_points %}<li>{{ p }}</li>{% endfor %}</ul>
+      {% endif %}
+    </div>
+  {% endfor %}
+</section>
+
+<!-- SECTION 4 — Phase 2 Reports -->
+<section id="section-4" class="phase2">
+  <h2>Phase 2 — Assessment</h2>
+  {% for agent in agent_outputs if agent.phase == 2 %}
+    <div class="agent-report agent-{{ agent.agent }}">
+      <h3>{{ agent.agent|replace("_", " ")|title }} — {{ agent.score }}/10</h3>
+      <p>{{ agent.summary }}</p>
+      {% if agent.agent == "financial_modeler" and agent.raw_output.get("excel_path") %}
+        <a href="{{ agent.raw_output.excel_path }}" class="excel-link">Download Excel Model →</a>
+      {% endif %}
+    </div>
+  {% endfor %}
+</section>
+
+<!-- SECTION 5 — The Debate -->
+<section id="section-5" class="debate">
+  <h2>Bull vs Bear Debate</h2>
+  {% for round in debate_rounds %}
+    <div class="debate-round">
+      <h3>Round {{ round.round_number }} — Gap: {{ (round.bull_conviction - round.bear_conviction)|abs }}</h3>
+      <div class="bull-arg"><strong>🐂 Bull (conviction: {{ round.bull_conviction }}):</strong> {{ round.bull_argument }}</div>
+      <div class="bear-arg"><strong>🐻 Bear (conviction: {{ round.bear_conviction }}):</strong> {{ round.bear_argument }}</div>
+    </div>
+  {% endfor %}
+  <p class="debate-result">
+    {% if contested %}Final: <strong>Contested</strong>{% else %}Final: <strong>Consensus</strong>{% endif %}
+  </p>
+</section>
+
+<!-- SECTION 6 — Portfolio Manager Verdict -->
+<section id="section-6" class="verdict">
+  <h2>Portfolio Manager Verdict</h2>
+  <div class="verdict-summary verdict-{{ verdict|lower }}">
+    <strong>{{ verdict }}</strong> — Score {{ score }} ({{ tier }})
+  </div>
+  <dl class="pricing">
+    <dt>Entry Zone</dt><dd>{% if entry_low %}${{ "%.2f"|format(entry_low) }} – ${{ "%.2f"|format(entry_high) }}{% else %}—{% endif %}</dd>
+    <dt>Stop Loss</dt><dd>{% if stop_loss %}${{ "%.2f"|format(stop_loss) }}{% else %}—{% endif %}</dd>
+    <dt>Target</dt><dd>{% if target_price %}${{ "%.2f"|format(target_price) }}{% else %}—{% endif %}</dd>
+  </dl>
+  <h3>Reasoning</h3>
+  <p>{{ pm_output.reasoning }}</p>
+  <h3>Expected Returns</h3>
+  {% if pm_output.expected_returns %}
+  <table class="returns-table">
+    <thead><tr><th>Horizon</th><th>Bear</th><th>Base</th><th>Bull</th></tr></thead>
+    <tbody>
+    {% for h in ["1m", "3m", "12m"] %}
+      <tr><td>{{ h }}</td>
+        <td>{{ pm_output.expected_returns.bear.get(h, "—") }}%</td>
+        <td>{{ pm_output.expected_returns.base.get(h, "—") }}%</td>
+        <td>{{ pm_output.expected_returns.bull.get(h, "—") }}%</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+  <h3>Key Risks</h3>
+  <ul class="risks">{% for r in pm_output.key_risks %}<li>{{ r }}</li>{% endfor %}</ul>
+  <h3>Key Catalysts</h3>
+  <ul class="catalysts">{% for c in pm_output.key_catalysts %}<li>{{ c }}</li>{% endfor %}</ul>
+</section>
+
+<!-- SECTION 7 — Additional Intelligence -->
+<section id="section-7" class="intel">
+  <h2>Additional Intelligence</h2>
+  <dl>
+    <dt>Analyst Consensus</dt><dd>{{ bundle.get("analyst_consensus", "—") }}</dd>
+    <dt>Next Earnings</dt><dd>{{ bundle.get("next_earnings_date", "—") }}</dd>
+    <dt>Short Interest</dt><dd>{{ bundle.get("short_interest_pct", "—") }}%</dd>
+    <dt>Insider Activity (last 90d)</dt><dd>{{ bundle.get("insider_summary", "—") }}</dd>
+  </dl>
+</section>
+
+<!-- SECTION 8 — Historical Fund Performance -->
+<section id="section-8" class="history">
+  <h2>Historical Fund Performance</h2>
+  {% if bundle.get("fund_history") %}
+    <table>
+      <thead><tr><th>Ticker</th><th>Score Given</th><th>Outcome</th><th>Return</th></tr></thead>
+      <tbody>
+      {% for h in bundle.fund_history %}
+        <tr><td>{{ h.ticker }}</td><td>{{ h.score }}</td><td>{{ h.outcome }}</td><td>{{ h.return_pct }}%</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="muted">No historical outcomes yet — populates as watchlist entries resolve.</p>
+  {% endif %}
+</section>
+
+<footer class="report-footer">
+  Generated {{ generated_at }} · HedgeFund Analyser
+</footer>
+
+</body></html>
