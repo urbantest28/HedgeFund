@@ -26,7 +26,7 @@ from config import BASE_DIR, UPLOADS_DIR
 from db.database import Database
 from pipeline.orchestrator import stream_analysis, stream_resume
 from pipeline.monitor import run_monitor
-from reports.generator import ReportGenerator
+from reports.generator import ReportGenerator, build_run_data
 from logger import get_logger
 
 app = FastAPI(title="HedgeFund Analyser")
@@ -172,21 +172,24 @@ async def get_report(run_id: int):
     run = db.get_run(run_id)
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
-    run_data = {
-        "run_id": run_id,
-        "ticker": run["ticker"],
-        "score": run.get("score"),
-        "tier": run.get("tier"),
-        "verdict": run.get("verdict"),
-        "entry_low": run.get("entry_low"),
-        "entry_high": run.get("entry_high"),
-        "stop_loss": run.get("stop_loss"),
-        "target_price": run.get("target_price"),
-        "bundle": db.get_bundle_snapshot(run_id),
-        "agent_outputs": db.get_agent_outputs(run_id),
-        "debate_rounds": db.get_debate_rounds(run_id),
-        "pm_output": db.get_pm_output(run_id),
-        "contested": bool(run.get("contested")),
-    }
+    run_data = build_run_data(
+        db,
+        run_id,
+        run["ticker"],
+        db.get_pm_output(run_id),
+        db.get_bundle_snapshot(run_id),
+        bool(run.get("contested")),
+        overrides={
+            # analysis_runs table is the source of truth for these fields,
+            # not the (possibly stale/missing) PM raw_output.
+            "score": run.get("score"),
+            "tier": run.get("tier"),
+            "verdict": run.get("verdict"),
+            "entry_low": run.get("entry_low"),
+            "entry_high": run.get("entry_high"),
+            "stop_loss": run.get("stop_loss"),
+            "target_price": run.get("target_price"),
+        },
+    )
     path = ReportGenerator().generate(run_data)
     return HTMLResponse(content=path.read_text(encoding="utf-8"))

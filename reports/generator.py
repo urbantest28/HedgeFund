@@ -1,5 +1,6 @@
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from config import BASE_DIR
 from logger import get_logger
@@ -8,6 +9,45 @@ log = get_logger("report")
 
 REPORTS_DIR = BASE_DIR / "reports_output"
 TEMPLATE_DIR = BASE_DIR / "reports"
+
+
+def build_run_data(
+    db,
+    run_id: int,
+    ticker: str,
+    pm_raw_output: dict,
+    bundle: dict,
+    contested: bool = False,
+    overrides: Optional[dict] = None,
+) -> dict:
+    """Build the run_data dict needed by ReportGenerator.generate().
+
+    Shared between pipeline/orchestrator.py (auto-gen at end of run) and
+    main.py /report/{run_id} endpoint to prevent field drift.
+
+    `overrides` lets callers (e.g. the endpoint) replace fields with more
+    authoritative values from the persisted analysis_runs table row.
+    """
+    pm_raw_output = pm_raw_output or {}
+    data = {
+        "run_id": run_id,
+        "ticker": ticker,
+        "score": pm_raw_output.get("score"),
+        "tier": pm_raw_output.get("tier", ""),
+        "verdict": pm_raw_output.get("verdict", ""),
+        "entry_low": pm_raw_output.get("entry_low"),
+        "entry_high": pm_raw_output.get("entry_high"),
+        "stop_loss": pm_raw_output.get("stop_loss"),
+        "target_price": pm_raw_output.get("target_price"),
+        "bundle": bundle,
+        "agent_outputs": db.get_agent_outputs(run_id),
+        "debate_rounds": db.get_debate_rounds(run_id),
+        "pm_output": pm_raw_output,
+        "contested": contested,
+    }
+    if overrides:
+        data.update(overrides)
+    return data
 
 
 class ReportGenerator:
