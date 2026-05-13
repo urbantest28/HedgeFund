@@ -220,5 +220,28 @@ class Database:
         row = cur.fetchone()
         return dict(row) if row else None
 
+    def get_bundle_snapshot(self, run_id: int) -> dict:
+        """Load the persisted bundle JSON snapshot for a run, if present."""
+        from config import BASE_DIR
+        path = BASE_DIR / "debug" / "bundles" / f"run_{run_id}_bundle.json"
+        if path.exists():
+            with open(path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        return {}
+
+    def get_pm_output(self, run_id: int) -> dict:
+        """Return the parsed raw_output dict from the portfolio_manager agent."""
+        rows = self.get_agent_outputs(run_id)
+        for r in rows:
+            if r.get("agent") == "portfolio_manager":
+                raw = r.get("raw_output")
+                if isinstance(raw, str):
+                    try:
+                        return json.loads(raw)
+                    except Exception:
+                        return {}
+                return raw or {}
+        return {}
+
     def close(self) -> None:
         self._conn.close()
