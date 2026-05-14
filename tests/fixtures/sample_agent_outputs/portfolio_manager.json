@@ -16,11 +16,9 @@
         "stop_loss": 171.0,
         "target_price": 210.0,
         "expected_returns": {
-            "6m": {"bear": 5, "base": 8, "bull": 12},
-            "1y": {"bear": 8, "base": 15, "bull": 22},
-            "2y": {"bear": 15, "base": 25, "bull": 35},
-            "5y": {"bear": 40, "base": 62, "bull": 85},
-            "10y": {"bear": 80, "base": 115, "bull": 150}
+            "bear": {"6m": 5, "1y": 8, "2y": 15, "5y": 40, "10y": 80},
+            "base": {"6m": 8, "1y": 15, "2y": 25, "5y": 62, "10y": 115},
+            "bull": {"6m": 12, "1y": 22, "2y": 35, "5y": 85, "10y": 150}
         },
         "linked_thesis_id": 3,
         "linked_thesis_name": "Big Tech Services Monetisation",
