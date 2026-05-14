@@ -23,7 +23,7 @@
 
 - [ ] **Step 1: Create folder structure**
 
-Run in `C:\Users\user\OneDrive\Desktop\HedgeFund\`:
+Run in `<project_root>\`:
 ```powershell
 New-Item -ItemType Directory -Force -Path data, agents, pipeline, db, reports, prompts/roles, prompts/skills, static, templates, cache, uploads, reports_output, logs, "debug/bundles", "tests/fixtures/sample_agent_outputs", tests/unit, tests/integration, tests/e2e, tests/regression, tests/failure_scenarios, docs/superpowers/plans
 New-Item -ItemType File -Force -Path data/__init__.py, agents/__init__.py, pipeline/__init__.py, db/__init__.py, reports/__init__.py, tests/__init__.py, "tests/unit/__init__.py", "tests/integration/__init__.py", "tests/e2e/__init__.py", "tests/regression/__init__.py", "tests/failure_scenarios/__init__.py", "debug/bundles/.gitkeep", "tests/regression/.gitkeep"
@@ -1789,7 +1789,7 @@ log = get_logger("sec_edgar")
 
 EDGAR_SEARCH = "https://efts.sec.gov/LATEST/search-index"
 EDGAR_DATA   = "https://data.sec.gov"
-HEADERS = {"User-Agent": "HedgeFund Analyser contact@example.com"}
+HEADERS = {"User-Agent": "HedgeFund Analyser your-email@example.com"}
 
 
 class SecEdgarClient:

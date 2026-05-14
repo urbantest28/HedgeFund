@@ -1,7 +1,7 @@
 ﻿# HedgeFund Multi-Agent Analyser — Design Spec
 **Date:** 2026-05-10  
 **Status:** Approved for implementation  
-**Project location:** `C:\Users\user\OneDrive\Desktop\HedgeFund\`
+**Project location:** `<project_root>\`
 
 ---
 
@@ -590,7 +590,7 @@ REDDIT_USER_AGENT=hedgefund-analyser/1.0
 NTFY_TOPIC=your-hedge-fund-alerts
 
 # Dashboard integration (read-only)
-DASHBOARD_TRADES_DB_PATH=C:\Users\user\OneDrive\Desktop\ISA Statements\Dashboard\src\trades.db
+DASHBOARD_TRADES_DB_PATH=<isa_project>\Dashboard\src\trades.db
 
 # Model routing
 PHASE1_PROVIDER=gemini
@@ -791,7 +791,7 @@ This means any future debug session starts with full context — no codebase sca
 
 **Separate GitHub repository:** `urbantest28/HedgeFund` (new repo, standalone from Dashboard)
 
-**Local path:** `C:\Users\user\OneDrive\Desktop\HedgeFund\`
+**Local path:** `<project_root>\`
 
 **Initialised with:**
 - `CLAUDE.md` — debugging workflow, log patterns, model routing reference

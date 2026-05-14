@@ -11,6 +11,9 @@ uploads/
 # Database
 *.db
 
+# Stray log files at any level
+*.log
+
 # Python
 __pycache__/
 *.pyc
