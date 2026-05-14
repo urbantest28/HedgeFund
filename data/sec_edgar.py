@@ -1,3 +1,4 @@
+import os
 import requests
 from typing import Any, List, Dict
 from logger import get_logger
@@ -6,7 +7,9 @@ log = get_logger("sec_edgar")
 
 EDGAR_SEARCH = "https://efts.sec.gov/LATEST/search-index"
 EDGAR_DATA   = "https://data.sec.gov"
-HEADERS = {"User-Agent": "HedgeFund Analyser richardstanleybloom@gmail.com"}
+# SEC EDGAR requires a contact in the User-Agent. Set SEC_EDGAR_CONTACT in .env
+_CONTACT = os.getenv("SEC_EDGAR_CONTACT", "contact@example.com")
+HEADERS = {"User-Agent": f"HedgeFund Analyser {_CONTACT}"}
 
 
 class SecEdgarClient:

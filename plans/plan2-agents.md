@@ -2546,7 +2546,7 @@ if __name__ == "__main__":
 - [ ] **Step 1: Activate venv and run unit tests**
 
 ```powershell
-cd "C:\Users\richa.RSB\OneDrive\Desktop\HedgeFund"
+cd "<project_root>"
 .\venv\Scripts\Activate.ps1
 pytest tests/unit/ -v
 ```
