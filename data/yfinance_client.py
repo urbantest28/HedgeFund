@@ -59,6 +59,39 @@ class YFinanceClient:
             log.warning(f"get_ohlcv({ticker}) failed: {e}")
             return {"records": [], "source": "yfinance", "error": str(e)}
 
+    def get_balance_sheet(self, ticker: str) -> dict:
+        try:
+            t = yf.Ticker(ticker)
+            annual = self._df_to_records(t.balance_sheet)
+            quarterly = self._df_to_records(t.quarterly_balance_sheet)
+            log.info(f"get_balance_sheet({ticker}) -> {len(annual)} annual, {len(quarterly)} quarterly")
+            return {"annual": annual, "quarterly": quarterly, "source": "yfinance", "rate_limited": False}
+        except Exception as e:
+            log.warning(f"get_balance_sheet({ticker}) failed: {e}")
+            return {"annual": [], "quarterly": [], "source": "yfinance", "rate_limited": False, "error": str(e)}
+
+    def get_cash_flow(self, ticker: str) -> dict:
+        try:
+            t = yf.Ticker(ticker)
+            annual = self._df_to_records(t.cashflow)
+            quarterly = self._df_to_records(t.quarterly_cashflow)
+            log.info(f"get_cash_flow({ticker}) -> {len(annual)} annual, {len(quarterly)} quarterly")
+            return {"annual": annual, "quarterly": quarterly, "source": "yfinance", "rate_limited": False}
+        except Exception as e:
+            log.warning(f"get_cash_flow({ticker}) failed: {e}")
+            return {"annual": [], "quarterly": [], "source": "yfinance", "rate_limited": False, "error": str(e)}
+
+    @staticmethod
+    def _df_to_records(df) -> list:
+        if df is None or df.empty:
+            return []
+        import pandas as pd
+        return [
+            {"date": str(col.date()), **{str(row): (None if pd.isna(val) else val)
+                                         for row, val in df[col].items()}}
+            for col in df.columns
+        ]
+
     def get_sector_peers(self, ticker: str, n: int = 5) -> List[str]:
         try:
             info = yf.Ticker(ticker).info

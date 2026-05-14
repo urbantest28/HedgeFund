@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from config import DEBUG_BUNDLES_DIR
+from data.cache_manager import CacheTier
 from data.manifest import ManifestBuilder
 from logger import get_logger
 
@@ -59,21 +60,54 @@ class DataAggregator:
                status="ok" if ohlcv.get("records") else "missing", critical=True)
 
         # ── Financials (income / balance / cash flow) ──────────────────────
+        yf_fallbacks = {
+            "balance_sheet": self._yf.get_balance_sheet,
+            "cash_flow":     self._yf.get_cash_flow,
+        }
         for key, method in [("income_statement", self._av.get_income_statement),
                              ("balance_sheet",    self._av.get_balance_sheet),
                              ("cash_flow",        self._av.get_cash_flow)]:
-            result = method(ticker)
+            cached = self._cache.get(ticker, key)
+            if cached:
+                result = cached["data"]
+                log.info(f"[run_{run_id}] {key}: served from cache")
+            else:
+                result = method(ticker)
+                if result.get("rate_limited") and key in yf_fallbacks:
+                    log.warning(f"[run_{run_id}] {key}: AV rate-limited, falling back to yfinance")
+                    result = yf_fallbacks[key](ticker)
+                if not result.get("rate_limited") and (result.get("annual") or result.get("quarterly")):
+                    self._cache.put(ticker, key, result, CacheTier.FOREVER, source=result.get("source", "alpha_vantage"))
             data[key] = result
             has_data = bool(result.get("annual") or result.get("quarterly"))
+            if has_data:
+                av_status = "ok"
+            elif result.get("rate_limited"):
+                av_status = "partial"
+            else:
+                av_status = "missing"
             mb.add(key, has_data, source=result.get("source"),
-                   status="ok" if has_data else "missing", critical=True)
+                   status=av_status, critical=True)
 
         # ── Earnings ──────────────────────────────────────────────────────
-        earnings = self._av.get_earnings(ticker)
+        cached_earnings = self._cache.get(ticker, "earnings_history")
+        if cached_earnings:
+            earnings = cached_earnings["data"]
+            log.info(f"[run_{run_id}] earnings_history: served from cache")
+        else:
+            earnings = self._av.get_earnings(ticker)
+            if not earnings.get("rate_limited") and earnings.get("quarterly"):
+                self._cache.put(ticker, "earnings_history", earnings, CacheTier.FOREVER, source="alpha_vantage")
         data["earnings"] = earnings
         has_earnings = bool(earnings.get("quarterly"))
+        if has_earnings:
+            earnings_status = "ok"
+        elif earnings.get("rate_limited"):
+            earnings_status = "partial"
+        else:
+            earnings_status = "missing"
         mb.add("earnings_history", has_earnings, source=earnings.get("source"),
-               status="ok" if has_earnings else "missing", critical=True)
+               status=earnings_status, critical=True)
 
         # ── News (live — never cached) ─────────────────────────────────────
         news = self._mm.get_news(ticker, limit=20)
