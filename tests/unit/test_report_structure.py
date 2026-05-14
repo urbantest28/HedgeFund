@@ -73,3 +73,39 @@ def test_no_contested_warning_when_consensus(tmp_path, sample_run_data, monkeypa
     gen = ReportGenerator()
     html = gen.generate(sample_run_data).read_text(encoding="utf-8")
     assert 'class="contested-warning"' not in html
+
+
+def test_pm_reasoning_renders_from_real_fixture(tmp_path, monkeypatch):
+    """Regression: PM reasoning from real production fixture must render in HTML.
+
+    Locks in the contract that the PM agent's raw_output.reasoning field
+    flows through build_run_data → template into Section 6 of the report.
+    Catches drift if raw_output schema or template lookup ever changes.
+    """
+    from reports.generator import build_run_data
+
+    monkeypatch.setattr("reports.generator.REPORTS_DIR", tmp_path)
+
+    with open(FIXTURE_DIR / "sample_agent_outputs" / "portfolio_manager.json") as f:
+        pm_result = json.load(f)
+
+    class FakeDb:
+        def get_agent_outputs(self, run_id): return []
+        def get_debate_rounds(self, run_id): return []
+
+    run_data = build_run_data(
+        FakeDb(), run_id=1, ticker="AAPL",
+        pm_raw_output=pm_result["raw_output"],
+        bundle={}, contested=False,
+    )
+
+    expected_reasoning = pm_result["raw_output"]["reasoning"]
+    assert expected_reasoning, "Fixture must have non-empty reasoning for this test to be meaningful"
+
+    gen = ReportGenerator()
+    html = gen.generate(run_data).read_text(encoding="utf-8")
+
+    assert expected_reasoning in html, (
+        "PM reasoning text from raw_output did not appear in rendered report. "
+        "Check template.html Section 6 references pm_output.reasoning correctly."
+    )
