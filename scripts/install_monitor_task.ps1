@@ -13,14 +13,14 @@ if (-not (Test-Path $PythonExe)) {
 }
 
 # Remove existing task if present
-schtasks /Query /TN $TaskName 2>$null
+schtasks /Query /TN $TaskName 2>$null | Out-Null
 if ($LASTEXITCODE -eq 0) {
     Write-Host "Removing existing task $TaskName..."
     schtasks /Delete /TN $TaskName /F | Out-Null
 }
 
 # Create new daily task at 16:30 local time (after US market close)
-$Command = "cmd.exe /c `"cd /d $ProjectRoot && $PythonExe $ScriptArgs >> $LogPath 2>&1`""
+$Command = "cmd.exe /c `"cd /d `"`"$ProjectRoot`"`" && `"`"$PythonExe`"`" $ScriptArgs >> `"`"$LogPath`"`" 2>&1`""
 
 schtasks /Create `
     /TN $TaskName `
