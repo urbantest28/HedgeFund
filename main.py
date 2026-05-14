@@ -172,6 +172,17 @@ async def get_report(run_id: int):
     run = db.get_run(run_id)
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
+    # A run is reportable when the Portfolio Manager has produced a verdict.
+    # This covers: complete, contested, and failed-with-AVOID-verdict.
+    # Excludes: pending, running, paused, and failed-without-verdict (aborted mid-pipeline).
+    if not run.get("verdict"):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Run {run_id} has no verdict yet (status: {run.get('status')!r}). "
+                "Report can only be generated after the Portfolio Manager phase completes."
+            ),
+        )
     run_data = build_run_data(
         db,
         run_id,
