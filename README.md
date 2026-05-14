@@ -45,6 +45,35 @@ python main.py
 # Open http://localhost:8000 in your browser
 ```
 
+## Reports
+
+After every successful analysis, an HTML report is automatically saved to `reports_output/TICKER_YYYYMMDD.html`. Open the file directly in a browser, or request regeneration via `GET /report/{run_id}` against the running server.
+
+## Daily Watchlist Monitor
+
+`pipeline/monitor.py` checks live prices for all watchlist entries against entry zones, stop losses, and target prices. When triggered, an ntfy.sh alert is pushed.
+
+**Install daily Windows scheduled task:**
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\install_monitor_task.ps1
+```
+
+Runs daily at 16:30 local time. Logs go to `logs/monitor_task.log`.
+
+**Verify or trigger manually:**
+
+```powershell
+schtasks /Query /TN HedgeFundWatchlistMonitor /V /FO LIST
+schtasks /Run /TN HedgeFundWatchlistMonitor
+```
+
+**Uninstall:**
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\uninstall_monitor_task.ps1
+```
+
 ## Debugging
 See `CLAUDE.md` for the full debugging workflow including `replay_run.py`, `run_agent.py`, and `inspect_run.py`.
 
