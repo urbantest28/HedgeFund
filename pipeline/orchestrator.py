@@ -118,6 +118,7 @@ def _build_summaries(results: list[dict]) -> dict:
             "bull_points": r["bull_points"],
             "bear_points": r["bear_points"],
             "raw_output": r["raw_output"],
+            "status": r.get("status", "complete"),
         }
         for r in results
     }
