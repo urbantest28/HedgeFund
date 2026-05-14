@@ -130,51 +130,71 @@ async def _run_pipeline(
     db: Database,
     queue: asyncio.Queue,
     transcript_path: Optional[Path] = None,
+    start_phase: int = 1,
+    prior_bundle: Optional[dict] = None,
+    prior_phase1_results: Optional[list] = None,
 ) -> None:
-    """Full 4-phase pipeline. Posts events to queue; puts a sentinel when done."""
+    """Full 4-phase pipeline. Posts events to queue; puts a sentinel when done.
+
+    When `start_phase > 1`, Phase 1 is skipped and `prior_bundle` /
+    `prior_phase1_results` (which must be supplied) are used instead of re-running.
+    """
     loop = asyncio.get_event_loop()
     agent_log = _log.bind_run(run_id)
     t_start = time.monotonic()
 
     try:
-        # ── Fetch data ───────────────────────────────────────────────────────────
-        await queue.put({"event": "fetch_start", "ticker": ticker})
-        agent_log.info(f"Fetching data for {ticker}")
-        aggregator = DataAggregator(ticker, run_id)
-        bundle = await loop.run_in_executor(None, aggregator.fetch_all)
-        bundle["ticker"] = ticker
+        if start_phase <= 1:
+            # ── Fetch data ───────────────────────────────────────────────────────
+            await queue.put({"event": "fetch_start", "ticker": ticker})
+            agent_log.info(f"Fetching data for {ticker}")
+            aggregator = DataAggregator(ticker, run_id)
+            bundle = await loop.run_in_executor(None, aggregator.fetch_all)
+            bundle["ticker"] = ticker
 
-        if transcript_path and transcript_path.exists():
-            bundle["earnings_transcript_path"] = str(transcript_path)
+            if transcript_path and transcript_path.exists():
+                bundle["earnings_transcript_path"] = str(transcript_path)
 
-        _save_bundle_snapshot(run_id, bundle)
-        await queue.put({"event": "fetch_complete", "ticker": ticker,
-                         "fields": len(bundle)})
+            _save_bundle_snapshot(run_id, bundle)
+            await queue.put({"event": "fetch_complete", "ticker": ticker,
+                             "fields": len(bundle)})
 
-        # ── Phase 1 ──────────────────────────────────────────────────────────────
-        phase1_results = await _run_phase_parallel(
-            PHASE1_AGENT_CLASSES, bundle, run_id, db, loop, queue, phase=1
-        )
+            # ── Phase 1 ──────────────────────────────────────────────────────────
+            phase1_results = await _run_phase_parallel(
+                PHASE1_AGENT_CLASSES, bundle, run_id, db, loop, queue, phase=1
+            )
 
-        # Abort rule: 2+ agents with minimal confidence
-        minimal_agents = [r["agent"] for r in phase1_results
-                          if r["data_confidence"] == "minimal"]
-        if len(minimal_agents) >= 2:
-            agent_log.warning(f"Abort — minimal confidence: {minimal_agents}")
-            db.update_run(run_id, status="failed")
+            # Abort rule: 2+ agents with minimal confidence
+            minimal_agents = [r["agent"] for r in phase1_results
+                              if r["data_confidence"] == "minimal"]
+            if len(minimal_agents) >= 2:
+                agent_log.warning(f"Abort — minimal confidence: {minimal_agents}")
+                db.update_run(run_id, status="failed")
+                await queue.put({
+                    "event": "abort",
+                    "reason": "2+ Phase 1 agents returned minimal data confidence",
+                    "agents": minimal_agents,
+                })
+                return
+
+            bundle["phase1_summaries"] = _build_summaries(phase1_results)
             await queue.put({
-                "event": "abort",
-                "reason": "2+ Phase 1 agents returned minimal data confidence",
-                "agents": minimal_agents,
+                "event": "phase_complete",
+                "phase": 1,
+                "duration_ms": int((time.monotonic() - t_start) * 1000),
             })
-            return
-
-        bundle["phase1_summaries"] = _build_summaries(phase1_results)
-        await queue.put({
-            "event": "phase_complete",
-            "phase": 1,
-            "duration_ms": int((time.monotonic() - t_start) * 1000),
-        })
+        else:
+            # ── Resume: Phase 1 already complete; load from checkpoint ───────────
+            bundle = dict(prior_bundle or {})
+            bundle.setdefault("ticker", ticker)
+            phase1_results = prior_phase1_results or []
+            bundle["phase1_summaries"] = _build_summaries(phase1_results)
+            agent_log.info(f"Resuming run | skipping Phase 1 | start_phase={start_phase}")
+            await queue.put({
+                "event": "phase_skipped",
+                "phase": 1,
+                "reason": "loaded from checkpoint",
+            })
 
         # ── Phase 2 ──────────────────────────────────────────────────────────────
         phase2_results = await _run_phase_parallel(
@@ -377,10 +397,63 @@ async def stream_resume(
         None
     ) if upload_dir.exists() else None
 
-    queue: asyncio.Queue = asyncio.Queue()
-    asyncio.create_task(_run_pipeline(ticker, run_id, db, queue, transcript_path))
+    # Determine where to resume from. Checkpoint shape may vary; accept either
+    # the production schema (`phase` + `completed_agents`) or a richer test/v2
+    # shape (`completed_phase`, `phase1_results`, `bundle_path`).
+    completed_phase = checkpoint.get("completed_phase")
+    if completed_phase is None:
+        # Production schema: `phase` is the phase that was paused mid-flight.
+        # If all Phase 1 agents are in `completed_agents`, Phase 1 is done.
+        ckpt_phase = checkpoint.get("phase", 1)
+        completed = checkpoint.get("completed_agents") or []
+        phase1_names = {c().name for c in PHASE1_AGENT_CLASSES}
+        if ckpt_phase >= 2 or phase1_names.issubset(set(completed)):
+            completed_phase = 1
+        else:
+            completed_phase = 0
 
-    yield f"data: {json.dumps({'event': 'run_resume', 'run_id': run_id, 'ticker': ticker})}\n\n"
+    start_phase = completed_phase + 1
+    prior_phase1_results = None
+    prior_bundle = None
+
+    if start_phase > 1:
+        # Prefer explicit phase1_results from checkpoint; otherwise reconstruct
+        # from saved agent outputs.
+        prior_phase1_results = checkpoint.get("phase1_results")
+        if prior_phase1_results is None:
+            outputs = db.get_agent_outputs(run_id) or []
+            prior_phase1_results = []
+            for o in outputs:
+                if o.get("phase") != 1:
+                    continue
+                raw = o.get("raw_output")
+                if isinstance(raw, str):
+                    try:
+                        raw = json.loads(raw)
+                    except Exception:
+                        raw = {}
+                prior_phase1_results.append(raw or {})
+
+        # Load the bundle snapshot. Checkpoint may carry an explicit path;
+        # otherwise fall back to the run's debug bundle.
+        bundle_path = checkpoint.get("bundle_path")
+        if bundle_path is None:
+            bundle_path = DEBUG_BUNDLES_DIR / f"run_{run_id}_bundle.json"
+        try:
+            with open(bundle_path, "r", encoding="utf-8") as fp:
+                prior_bundle = json.load(fp)
+        except (OSError, json.JSONDecodeError):
+            prior_bundle = {"ticker": ticker}
+
+    queue: asyncio.Queue = asyncio.Queue()
+    asyncio.create_task(_run_pipeline(
+        ticker, run_id, db, queue, transcript_path,
+        start_phase=start_phase,
+        prior_bundle=prior_bundle,
+        prior_phase1_results=prior_phase1_results,
+    ))
+
+    yield f"data: {json.dumps({'event': 'run_resume', 'run_id': run_id, 'ticker': ticker, 'start_phase': start_phase})}\n\n"
 
     while True:
         event = await queue.get()
