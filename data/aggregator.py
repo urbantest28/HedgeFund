@@ -41,7 +41,14 @@ class DataAggregator:
         log.info(f"[run_{run_id}] live_price: {price} from {price_result.get('source')}")
 
         # ── Fundamentals ──────────────────────────────────────────────────
-        fund = self._yf.get_fundamentals(ticker)
+        cached_fund = self._cache.get(ticker, "fundamentals")
+        if cached_fund:
+            fund = cached_fund["data"]
+            log.info(f"[run_{run_id}] fundamentals: served from cache")
+        else:
+            fund = self._yf.get_fundamentals(ticker)
+            if fund.get("pe_ratio"):
+                self._cache.put(ticker, "fundamentals", fund, CacheTier.TTL_1D, source="yfinance")
         data["fundamentals"] = fund
         pe = fund.get("pe_ratio")
         mb.add("pe_ratio", pe, source=fund.get("source"),
@@ -124,14 +131,28 @@ class DataAggregator:
                status="ok" if reddit.get("total_posts", 0) > 0 else "partial")
 
         # ── Macro (FRED) ──────────────────────────────────────────────────
-        macro = self._fred.get_macro_snapshot()
+        cached_macro = self._cache.get(ticker, "fed_funds_rate")
+        if cached_macro:
+            macro = cached_macro["data"]
+            log.info(f"[run_{run_id}] fed_funds_rate: served from cache")
+        else:
+            macro = self._fred.get_macro_snapshot()
+            if macro.get("fed_funds_rate"):
+                self._cache.put(ticker, "fed_funds_rate", macro, CacheTier.TTL_1D, source="fred")
         data["macro"] = macro
         rate = macro.get("fed_funds_rate")
         mb.add("fed_funds_rate", rate, source="fred",
                status="ok" if rate else "missing", critical=True)
 
         # ── SEC filings ───────────────────────────────────────────────────
-        filings = self._edgar.search_filings(ticker, form_type="10-K")
+        cached_filings = self._cache.get(ticker, "sec_10k")
+        if cached_filings:
+            filings = cached_filings["data"]
+            log.info(f"[run_{run_id}] sec_10k: served from cache")
+        else:
+            filings = self._edgar.search_filings(ticker, form_type="10-K")
+            if filings.get("filings"):
+                self._cache.put(ticker, "sec_10k", filings, CacheTier.FOREVER, source="sec_edgar")
         data["sec_filings"] = filings
         mb.add("sec_10k", bool(filings.get("filings")), source="sec_edgar",
                status="ok" if filings.get("filings") else "partial")
