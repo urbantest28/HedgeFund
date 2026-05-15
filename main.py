@@ -25,7 +25,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from config import BASE_DIR, UPLOADS_DIR, sanitize_ticker
+from config import BASE_DIR, UPLOADS_DIR, REPORTS_DIR, sanitize_ticker, safe_path
 
 PID_FILE = BASE_DIR / "logs" / "server.pid"
 from db.database import Database
@@ -112,9 +112,12 @@ async def upload_file(ticker: str, run_id: int, file: UploadFile = File(...)):
     if not safe_filename:
         raise HTTPException(400, "Invalid filename")
 
-    upload_dir = UPLOADS_DIR / safe_ticker / f"run_{run_id}"
+    try:
+        upload_dir = safe_path(UPLOADS_DIR, safe_ticker, f"run_{run_id}")
+        dest = safe_path(UPLOADS_DIR, safe_ticker, f"run_{run_id}", safe_filename)
+    except ValueError:
+        raise HTTPException(400, "Invalid upload path")
     upload_dir.mkdir(parents=True, exist_ok=True)
-    dest = upload_dir / safe_filename
 
     with dest.open("wb") as f:
         shutil.copyfileobj(file.file, f)
@@ -150,8 +153,7 @@ async def get_run(run_id: int):
     needed_md = None
     try:
         safe_ticker = sanitize_ticker(run["ticker"])
-        upload_dir = UPLOADS_DIR / safe_ticker / f"run_{run_id}"
-        needed_path = upload_dir / "NEEDED.md"
+        needed_path = safe_path(UPLOADS_DIR, safe_ticker, f"run_{run_id}", "NEEDED.md")
         if needed_path.exists():
             needed_md = needed_path.read_text(encoding="utf-8")
     except ValueError:

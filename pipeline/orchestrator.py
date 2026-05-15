@@ -33,7 +33,7 @@ from data.cache_manager import CacheManager
 from db.database import Database
 from pipeline.debate import run_debate
 from reports.generator import ReportGenerator, build_run_data
-from config import BASE_DIR, DEBUG_BUNDLES_DIR, sanitize_ticker
+from config import BASE_DIR, DEBUG_BUNDLES_DIR, sanitize_ticker, safe_path
 from logger import get_logger
 
 _log = get_logger("orchestrator")
@@ -53,7 +53,7 @@ PHASE2_AGENT_CLASSES = [
 
 
 def _save_bundle_snapshot(run_id: int, bundle: dict) -> None:
-    path = DEBUG_BUNDLES_DIR / f"run_{run_id}_bundle.json"
+    path = safe_path(DEBUG_BUNDLES_DIR, f"run_{int(run_id)}_bundle.json")
     path.write_text(json.dumps(bundle, default=str), encoding="utf-8")
 
 
@@ -409,7 +409,7 @@ async def stream_resume(
     db.update_run(run_id, status="running")
 
     # Look for any uploaded files for this run
-    upload_dir = BASE_DIR / "uploads" / sanitize_ticker(ticker) / f"run_{run_id}"
+    upload_dir = safe_path(BASE_DIR / "uploads", sanitize_ticker(ticker), f"run_{run_id}")
     transcript_path = next(
         (f for f in upload_dir.glob("*.pdf") if f.name != "NEEDED.md"),
         None
@@ -455,13 +455,15 @@ async def stream_resume(
         # Load the bundle snapshot. Checkpoint may carry an explicit path;
         # otherwise fall back to the run's debug bundle.
         bundle_path = checkpoint.get("bundle_path")
-        if bundle_path is None:
-            bundle_path = DEBUG_BUNDLES_DIR / f"run_{run_id}_bundle.json"
-        # Reject any bundle_path that escapes BASE_DIR (path-traversal guard).
-        resolved = Path(bundle_path).resolve()
-        if not str(resolved).startswith(str(BASE_DIR.resolve())):
-            bundle_path = DEBUG_BUNDLES_DIR / f"run_{run_id}_bundle.json"
-            resolved = bundle_path
+        try:
+            if bundle_path is None:
+                resolved = safe_path(DEBUG_BUNDLES_DIR, f"run_{int(run_id)}_bundle.json")
+            else:
+                # Validate externally-sourced path stays inside BASE_DIR.
+                resolved = Path(bundle_path).resolve()
+                resolved.relative_to(BASE_DIR.resolve())
+        except ValueError:
+            resolved = safe_path(DEBUG_BUNDLES_DIR, f"run_{int(run_id)}_bundle.json")
         try:
             with open(resolved, "r", encoding="utf-8") as fp:
                 prior_bundle = json.load(fp)

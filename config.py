@@ -18,6 +18,20 @@ def sanitize_ticker(ticker: str) -> str:
         raise ValueError(f"Invalid ticker: {ticker!r}")
     return t
 
+
+def safe_path(base: Path, *parts: str) -> Path:
+    """Construct a path under base and verify it doesn't escape via traversal.
+
+    Resolves symlinks before checking containment so that ``../../`` tricks
+    are caught even after sanitize_ticker().  Raises ValueError if the
+    resolved path is not inside base.
+    """
+    base_resolved = base.resolve()
+    candidate = base_resolved.joinpath(*[str(p) for p in parts]).resolve()
+    # relative_to raises ValueError when candidate is not under base_resolved.
+    candidate.relative_to(base_resolved)
+    return candidate
+
 BASE_DIR = Path(__file__).parent
 
 load_dotenv(BASE_DIR / ".env", override=True)
