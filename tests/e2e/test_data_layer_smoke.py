@@ -45,14 +45,17 @@ def test_full_data_layer_pipeline_with_fixture(aapl_bundle, tmp_path):
     edgar = MagicMock()
     edgar.search_filings.return_value = aapl_bundle["data"]["sec_filings"]
 
+    insider = MagicMock()
+    insider.get_transactions.return_value = {"transactions": [], "source": "openinsider"}
+
     cache = MagicMock()
     cache.get.return_value = None
 
     db = MagicMock()
 
     agg = DataAggregator(yf=yf, mm=mm, av=av, fred=fred,
-                         reddit=reddit, edgar=edgar, cache=cache,
-                         db=db, debug_dir=tmp_path)
+                         reddit=reddit, edgar=edgar, insider=insider,
+                         cache=cache, db=db, debug_dir=tmp_path)
     bundle = agg.fetch("AAPL", run_id=1)
 
     # Bundle structure

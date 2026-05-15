@@ -53,11 +53,14 @@ def aggregator(tmp_path):
     edgar = MagicMock()
     edgar.search_filings.return_value = {"filings": [{"form": "10-K"}], "source": "sec_edgar"}
 
+    insider = MagicMock()
+    insider.get_transactions.return_value = {"transactions": [], "source": "openinsider"}
+
     cache = CacheManager(cache_dir=tmp_path, db=None)
     db    = MagicMock()
 
     return DataAggregator(yf=yf, mm=mm, av=av, fred=fred, reddit=reddit,
-                          edgar=edgar, cache=cache, db=db,
+                          edgar=edgar, insider=insider, cache=cache, db=db,
                           debug_dir=tmp_path / "bundles")
 
 

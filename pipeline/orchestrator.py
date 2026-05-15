@@ -28,6 +28,7 @@ from data.alpha_vantage import AlphaVantageClient
 from data.fred_client import FredClient
 from data.reddit_client import RedditClient
 from data.sec_edgar import SecEdgarClient
+from data.insider_client import InsiderClient
 from data.cache_manager import CacheManager
 from db.database import Database
 from pipeline.debate import run_debate
@@ -162,6 +163,7 @@ async def _run_pipeline(
                 fred=FredClient(),
                 reddit=RedditClient(),
                 edgar=SecEdgarClient(),
+                insider=InsiderClient(),
                 cache=CacheManager(db=db),
                 db=db,
             )
