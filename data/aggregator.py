@@ -12,16 +12,17 @@ log = get_logger("aggregator")
 
 
 class DataAggregator:
-    def __init__(self, yf, mm, av, fred, reddit, edgar, cache, db,
+    def __init__(self, yf, mm, av, fred, reddit, edgar, insider, cache, db,
                  debug_dir: Path = DEBUG_BUNDLES_DIR):
-        self._yf     = yf
-        self._mm     = mm
-        self._av     = av
-        self._fred   = fred
-        self._reddit = reddit
-        self._edgar  = edgar
-        self._cache  = cache
-        self._db     = db
+        self._yf      = yf
+        self._mm      = mm
+        self._av      = av
+        self._fred    = fred
+        self._reddit  = reddit
+        self._edgar   = edgar
+        self._insider = insider
+        self._cache   = cache
+        self._db      = db
         self._debug_dir = debug_dir
         self._debug_dir.mkdir(parents=True, exist_ok=True)
 
@@ -53,6 +54,10 @@ class DataAggregator:
         pe = fund.get("pe_ratio")
         mb.add("pe_ratio", pe, source=fund.get("source"),
                status="ok" if pe else "missing", critical=True)
+        short = fund.get("short_interest", {})
+        mb.add("short_interest", bool(short.get("short_float_pct")),
+               source="yfinance",
+               status="ok" if short.get("short_float_pct") else "partial")
 
         # ── OHLCV ─────────────────────────────────────────────────────────
         cached_ohlcv = self._cache.get(ticker, "ohlcv_historical")
@@ -156,6 +161,23 @@ class DataAggregator:
         data["sec_filings"] = filings
         mb.add("sec_10k", bool(filings.get("filings")), source="sec_edgar",
                status="ok" if filings.get("filings") else "partial")
+
+        # ── Insider transactions ──────────────────────────────────────────
+        cached_insider = self._cache.get(ticker, "insider_transactions")
+        if cached_insider:
+            insider = cached_insider["data"]
+            log.info(f"[run_{run_id}] insider_transactions: served from cache")
+        else:
+            insider = self._insider.get_transactions(ticker, days=90)
+            if insider.get("transactions"):
+                self._cache.put(ticker, "insider_transactions", insider,
+                                CacheTier.FOREVER, source="openinsider")
+        data["insider_transactions"] = insider
+        txn_count = len(insider.get("transactions", []))
+        mb.add("insider_transactions", txn_count > 0,
+               source="openinsider",
+               status="ok" if txn_count > 0 else "partial")
+        log.info(f"[run_{run_id}] insider_transactions: {txn_count} transactions")
 
         # ── Analyst ratings ───────────────────────────────────────────────
         ratings = self._mm.get_analyst_ratings(ticker)

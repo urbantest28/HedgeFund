@@ -21,6 +21,7 @@ def _make_aggregator(tmp_path, **overrides):
         "fred":   MagicMock(**{"get_macro_snapshot.return_value": {"fed_funds_rate": 5.33, "source": "fred"}}),
         "reddit": MagicMock(**{"get_posts.return_value": {"posts": [], "total_posts": 0, "source": "reddit"}}),
         "edgar":  MagicMock(**{"search_filings.return_value": {"filings": [], "source": "sec_edgar"}}),
+        "insider": MagicMock(**{"get_transactions.return_value": {"transactions": [], "source": "openinsider"}}),
         "cache":  MagicMock(**{"get.return_value": None}),
         "db":     MagicMock(),
     }

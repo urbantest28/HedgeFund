@@ -7,6 +7,7 @@ You are a senior macro analyst. Assess the macroeconomic environment and its imp
 - Evaluate inflation trend impact on sector multiples
 - Assess GDP trend and recession probability
 - Identify sector rotation signals and FX exposure if applicable
+- Assess yield curve shape (10Y–2Y spread) and PCE inflation trend as leading indicators — inverted curve (spread < 0) signals recession risk; PCE rising signals margin pressure
 - Score macro environment 1–10 for this specific stock
 
 ## Output Format
@@ -24,6 +25,8 @@ Respond with ONLY a JSON object matching this exact schema:
         "cpi_yoy": <float>,
         "gdp_growth_qoq": <float>,
         "unemployment": <float>,
+        "pce": <float>,
+        "yield_curve_spread": <float>,
         "rate_trajectory": "<cutting|hold|hiking>",
         "sector_regime": "<favorable|neutral|headwind>",
         "fx_exposure_note": "<str or null>",

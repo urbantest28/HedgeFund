@@ -23,22 +23,30 @@ class FredClient:
                     errors.append(f"{series_id}: {e}")
                     return None
 
+            gs10 = _latest("GS10")
+            gs2  = _latest("GS2")
+            yield_curve = (gs10 - gs2) if gs10 is not None and gs2 is not None else None
+
             result = {
-                "fed_funds_rate": _latest("DFF"),
-                "cpi":            _latest("CPIAUCSL"),
-                "gdp":            _latest("GDP"),
-                "unemployment":   _latest("UNRATE"),
+                "fed_funds_rate":     _latest("DFF"),
+                "cpi":                _latest("CPIAUCSL"),
+                "gdp":                _latest("GDP"),
+                "unemployment":       _latest("UNRATE"),
+                "pce":                _latest("PCE"),
+                "yield_curve_spread": yield_curve,
                 "source": "fred",
             }
             if errors:
                 result["error"] = "; ".join(errors)
             log.info(f"FRED snapshot — rate:{result['fed_funds_rate']} "
-                     f"cpi:{result['cpi']} gdp:{result['gdp']}")
+                     f"cpi:{result['cpi']} pce:{result['pce']} "
+                     f"yield_curve:{result['yield_curve_spread']}")
             return result
         except Exception as e:
             log.warning(f"FRED macro_snapshot failed: {e}")
             return {"fed_funds_rate": None, "cpi": None, "gdp": None,
-                    "unemployment": None, "source": "fred", "error": str(e)}
+                    "unemployment": None, "pce": None, "yield_curve_spread": None,
+                    "source": "fred", "error": str(e)}
 
     def get_series_history(self, series_id: str, observation_start: str = "2020-01-01") -> dict:
         try:
