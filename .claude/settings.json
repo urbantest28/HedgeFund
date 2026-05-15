@@ -1,0 +1,19 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "agent",
+            "if": "Bash(gh pr create*)",
+            "prompt": "The user is about to run `gh pr create`. Before the PR is created, perform a combined code review and security review of the branch changes.\n\n1. Run `git diff main...HEAD` to get the full diff.\n2. Run the /review skill if available, otherwise review the diff yourself for: code quality, logic errors, naming, test coverage, and design issues.\n3. Run the /security-review skill if available, otherwise review the diff yourself for: injection vulnerabilities, hardcoded secrets, insecure dependencies, auth/authz issues, and OWASP Top 10.\n4. Return your findings as additionalContext so they appear in the session before the PR is created.\n\nIf you find CRITICAL security issues (e.g. exposed secrets, SQL injection, RCE), set `continue` to false with a `stopReason` explaining why the PR should not be created until fixed. For non-critical findings, just report them as additionalContext and allow the PR to proceed.",
+            "timeout": 120,
+            "statusMessage": "Running code & security review before PR creation...",
+            "model": "claude-sonnet-4-6"
+          }
+        ]
+      }
+    ]
+  }
+}
