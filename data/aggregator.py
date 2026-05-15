@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from config import DEBUG_BUNDLES_DIR
+from data.cache_manager import CacheTier
 from data.manifest import ManifestBuilder
 from logger import get_logger
 
@@ -40,7 +41,14 @@ class DataAggregator:
         log.info(f"[run_{run_id}] live_price: {price} from {price_result.get('source')}")
 
         # ── Fundamentals ──────────────────────────────────────────────────
-        fund = self._yf.get_fundamentals(ticker)
+        cached_fund = self._cache.get(ticker, "fundamentals")
+        if cached_fund:
+            fund = cached_fund["data"]
+            log.info(f"[run_{run_id}] fundamentals: served from cache")
+        else:
+            fund = self._yf.get_fundamentals(ticker)
+            if fund.get("pe_ratio"):
+                self._cache.put(ticker, "fundamentals", fund, CacheTier.TTL_1D, source="yfinance")
         data["fundamentals"] = fund
         pe = fund.get("pe_ratio")
         mb.add("pe_ratio", pe, source=fund.get("source"),
@@ -59,21 +67,54 @@ class DataAggregator:
                status="ok" if ohlcv.get("records") else "missing", critical=True)
 
         # ── Financials (income / balance / cash flow) ──────────────────────
+        yf_fallbacks = {
+            "balance_sheet": self._yf.get_balance_sheet,
+            "cash_flow":     self._yf.get_cash_flow,
+        }
         for key, method in [("income_statement", self._av.get_income_statement),
                              ("balance_sheet",    self._av.get_balance_sheet),
                              ("cash_flow",        self._av.get_cash_flow)]:
-            result = method(ticker)
+            cached = self._cache.get(ticker, key)
+            if cached:
+                result = cached["data"]
+                log.info(f"[run_{run_id}] {key}: served from cache")
+            else:
+                result = method(ticker)
+                if result.get("rate_limited") and key in yf_fallbacks:
+                    log.warning(f"[run_{run_id}] {key}: AV rate-limited, falling back to yfinance")
+                    result = yf_fallbacks[key](ticker)
+                if not result.get("rate_limited") and (result.get("annual") or result.get("quarterly")):
+                    self._cache.put(ticker, key, result, CacheTier.FOREVER, source=result.get("source", "alpha_vantage"))
             data[key] = result
             has_data = bool(result.get("annual") or result.get("quarterly"))
+            if has_data:
+                av_status = "ok"
+            elif result.get("rate_limited"):
+                av_status = "partial"
+            else:
+                av_status = "missing"
             mb.add(key, has_data, source=result.get("source"),
-                   status="ok" if has_data else "missing", critical=True)
+                   status=av_status, critical=True)
 
         # ── Earnings ──────────────────────────────────────────────────────
-        earnings = self._av.get_earnings(ticker)
+        cached_earnings = self._cache.get(ticker, "earnings_history")
+        if cached_earnings:
+            earnings = cached_earnings["data"]
+            log.info(f"[run_{run_id}] earnings_history: served from cache")
+        else:
+            earnings = self._av.get_earnings(ticker)
+            if not earnings.get("rate_limited") and earnings.get("quarterly"):
+                self._cache.put(ticker, "earnings_history", earnings, CacheTier.FOREVER, source="alpha_vantage")
         data["earnings"] = earnings
         has_earnings = bool(earnings.get("quarterly"))
+        if has_earnings:
+            earnings_status = "ok"
+        elif earnings.get("rate_limited"):
+            earnings_status = "partial"
+        else:
+            earnings_status = "missing"
         mb.add("earnings_history", has_earnings, source=earnings.get("source"),
-               status="ok" if has_earnings else "missing", critical=True)
+               status=earnings_status, critical=True)
 
         # ── News (live — never cached) ─────────────────────────────────────
         news = self._mm.get_news(ticker, limit=20)
@@ -90,14 +131,28 @@ class DataAggregator:
                status="ok" if reddit.get("total_posts", 0) > 0 else "partial")
 
         # ── Macro (FRED) ──────────────────────────────────────────────────
-        macro = self._fred.get_macro_snapshot()
+        cached_macro = self._cache.get(ticker, "fed_funds_rate")
+        if cached_macro:
+            macro = cached_macro["data"]
+            log.info(f"[run_{run_id}] fed_funds_rate: served from cache")
+        else:
+            macro = self._fred.get_macro_snapshot()
+            if macro.get("fed_funds_rate"):
+                self._cache.put(ticker, "fed_funds_rate", macro, CacheTier.TTL_1D, source="fred")
         data["macro"] = macro
         rate = macro.get("fed_funds_rate")
         mb.add("fed_funds_rate", rate, source="fred",
                status="ok" if rate else "missing", critical=True)
 
         # ── SEC filings ───────────────────────────────────────────────────
-        filings = self._edgar.search_filings(ticker, form_type="10-K")
+        cached_filings = self._cache.get(ticker, "sec_10k")
+        if cached_filings:
+            filings = cached_filings["data"]
+            log.info(f"[run_{run_id}] sec_10k: served from cache")
+        else:
+            filings = self._edgar.search_filings(ticker, form_type="10-K")
+            if filings.get("filings"):
+                self._cache.put(ticker, "sec_10k", filings, CacheTier.FOREVER, source="sec_edgar")
         data["sec_filings"] = filings
         mb.add("sec_10k", bool(filings.get("filings")), source="sec_edgar",
                status="ok" if filings.get("filings") else "partial")

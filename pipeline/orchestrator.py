@@ -22,6 +22,13 @@ from agents.thesis_validator import ThesisValidatorAgent
 from agents.financial_modeler import FinancialModelerAgent
 from agents.portfolio_manager import PortfolioManagerAgent
 from data.aggregator import DataAggregator
+from data.yfinance_client import YFinanceClient
+from data.massive_market import MassiveMarketClient
+from data.alpha_vantage import AlphaVantageClient
+from data.fred_client import FredClient
+from data.reddit_client import RedditClient
+from data.sec_edgar import SecEdgarClient
+from data.cache_manager import CacheManager
 from db.database import Database
 from pipeline.debate import run_debate
 from reports.generator import ReportGenerator, build_run_data
@@ -148,8 +155,17 @@ async def _run_pipeline(
             # ── Fetch data ───────────────────────────────────────────────────────
             await queue.put({"event": "fetch_start", "ticker": ticker})
             agent_log.info(f"Fetching data for {ticker}")
-            aggregator = DataAggregator(ticker, run_id)
-            bundle = await loop.run_in_executor(None, aggregator.fetch_all)
+            aggregator = DataAggregator(
+                yf=YFinanceClient(),
+                mm=MassiveMarketClient(),
+                av=AlphaVantageClient(),
+                fred=FredClient(),
+                reddit=RedditClient(),
+                edgar=SecEdgarClient(),
+                cache=CacheManager(db=db),
+                db=db,
+            )
+            bundle = await loop.run_in_executor(None, lambda: aggregator.fetch(ticker, run_id))
             bundle["ticker"] = ticker
 
             if transcript_path and transcript_path.exists():
