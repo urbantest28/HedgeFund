@@ -40,11 +40,19 @@ class YFinanceClient:
                 "sector":         info.get("sector"),
                 "industry":       info.get("industry"),
                 "name":           info.get("shortName"),
+                "short_interest": {
+                    "short_float_pct": info.get("shortPercentOfFloat"),
+                    "days_to_cover":   info.get("shortRatio"),
+                    "shares_short":    info.get("sharesShort"),
+                },
                 "source":         "yfinance",
             }
         except Exception as e:
             log.warning(f"get_fundamentals({ticker}) failed: {e}")
             return {"source": "yfinance", "error": str(e),
+                    "short_interest": {"short_float_pct": None,
+                                       "days_to_cover": None,
+                                       "shares_short": None},
                     **{k: None for k in ("pe_ratio","price_to_book","ev_ebitda",
                                          "price_to_sales","roe","debt_equity",
                                          "revenue_growth","gross_margin",
