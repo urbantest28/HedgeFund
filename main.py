@@ -25,7 +25,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from config import BASE_DIR, UPLOADS_DIR
+from config import BASE_DIR, UPLOADS_DIR, sanitize_ticker
 
 PID_FILE = BASE_DIR / "logs" / "server.pid"
 from db.database import Database
@@ -98,18 +98,28 @@ async def resume_run(run_id: int):
 @app.post("/upload/{ticker}/{run_id}")
 async def upload_file(ticker: str, run_id: int, file: UploadFile = File(...)):
     """Accept file upload for a paused run. Stores in uploads/TICKER/run_{id}/."""
+    try:
+        safe_ticker = sanitize_ticker(ticker)
+    except ValueError:
+        raise HTTPException(400, f"Invalid ticker: {ticker!r}")
+
     run = _db.get_run(run_id)
     if not run:
         raise HTTPException(404, f"Run {run_id} not found")
 
-    upload_dir = UPLOADS_DIR / ticker.upper() / f"run_{run_id}"
+    # Strip any directory components from the uploaded filename.
+    safe_filename = Path(file.filename).name
+    if not safe_filename:
+        raise HTTPException(400, "Invalid filename")
+
+    upload_dir = UPLOADS_DIR / safe_ticker / f"run_{run_id}"
     upload_dir.mkdir(parents=True, exist_ok=True)
-    dest = upload_dir / file.filename
+    dest = upload_dir / safe_filename
 
     with dest.open("wb") as f:
         shutil.copyfileobj(file.file, f)
 
-    _log.info(f"File uploaded | run_id: {run_id} | file: {file.filename}")
+    _log.info(f"File uploaded | run_id: {run_id} | file: {safe_filename}")
     return JSONResponse({"status": "ok", "path": str(dest), "run_id": run_id})
 
 
@@ -138,10 +148,14 @@ async def get_run(run_id: int):
 
     # Load NEEDED.md if present
     needed_md = None
-    upload_dir = UPLOADS_DIR / run["ticker"] / f"run_{run_id}"
-    needed_path = upload_dir / "NEEDED.md"
-    if needed_path.exists():
-        needed_md = needed_path.read_text(encoding="utf-8")
+    try:
+        safe_ticker = sanitize_ticker(run["ticker"])
+        upload_dir = UPLOADS_DIR / safe_ticker / f"run_{run_id}"
+        needed_path = upload_dir / "NEEDED.md"
+        if needed_path.exists():
+            needed_md = needed_path.read_text(encoding="utf-8")
+    except ValueError:
+        pass
 
     return JSONResponse({
         "run": run,

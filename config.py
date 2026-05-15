@@ -2,6 +2,21 @@ from pathlib import Path
 from dotenv import load_dotenv
 from typing import Optional
 import os
+import re
+
+_TICKER_RE = re.compile(r'^[A-Z0-9.\-]{1,12}$')
+
+
+def sanitize_ticker(ticker: str) -> str:
+    """Normalise and validate a ticker symbol for safe use in file paths.
+
+    Raises ValueError for anything that doesn't look like a real ticker so
+    callers can return HTTP 400 before the value ever touches the filesystem.
+    """
+    t = ticker.strip().upper()
+    if not _TICKER_RE.match(t):
+        raise ValueError(f"Invalid ticker: {ticker!r}")
+    return t
 
 BASE_DIR = Path(__file__).parent
 

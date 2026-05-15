@@ -2,7 +2,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-from config import BASE_DIR
+from config import BASE_DIR, sanitize_ticker
 from logger import get_logger
 
 log = get_logger("report")
@@ -59,7 +59,7 @@ class ReportGenerator:
         )
 
     def generate(self, run_data: dict) -> Path:
-        ticker = run_data["ticker"]
+        ticker = sanitize_ticker(run_data["ticker"])
         date_str = datetime.now().strftime("%Y%m%d")
         filename = f"{ticker}_{date_str}.html"
         out_path = REPORTS_DIR / filename

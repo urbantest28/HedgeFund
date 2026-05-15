@@ -33,7 +33,7 @@ from data.cache_manager import CacheManager
 from db.database import Database
 from pipeline.debate import run_debate
 from reports.generator import ReportGenerator, build_run_data
-from config import BASE_DIR, DEBUG_BUNDLES_DIR
+from config import BASE_DIR, DEBUG_BUNDLES_DIR, sanitize_ticker
 from logger import get_logger
 
 _log = get_logger("orchestrator")
@@ -409,7 +409,7 @@ async def stream_resume(
     db.update_run(run_id, status="running")
 
     # Look for any uploaded files for this run
-    upload_dir = BASE_DIR / "uploads" / ticker / f"run_{run_id}"
+    upload_dir = BASE_DIR / "uploads" / sanitize_ticker(ticker) / f"run_{run_id}"
     transcript_path = next(
         (f for f in upload_dir.glob("*.pdf") if f.name != "NEEDED.md"),
         None
@@ -457,8 +457,13 @@ async def stream_resume(
         bundle_path = checkpoint.get("bundle_path")
         if bundle_path is None:
             bundle_path = DEBUG_BUNDLES_DIR / f"run_{run_id}_bundle.json"
+        # Reject any bundle_path that escapes BASE_DIR (path-traversal guard).
+        resolved = Path(bundle_path).resolve()
+        if not str(resolved).startswith(str(BASE_DIR.resolve())):
+            bundle_path = DEBUG_BUNDLES_DIR / f"run_{run_id}_bundle.json"
+            resolved = bundle_path
         try:
-            with open(bundle_path, "r", encoding="utf-8") as fp:
+            with open(resolved, "r", encoding="utf-8") as fp:
                 prior_bundle = json.load(fp)
         except (OSError, json.JSONDecodeError):
             prior_bundle = {"ticker": ticker}

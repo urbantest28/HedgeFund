@@ -232,7 +232,11 @@ class Database:
     def get_bundle_snapshot(self, run_id: int) -> dict:
         """Load the persisted bundle JSON snapshot for a run, if present."""
         from config import BASE_DIR
-        path = BASE_DIR / "debug" / "bundles" / f"run_{run_id}_bundle.json"
+        bundles_dir = (BASE_DIR / "debug" / "bundles").resolve()
+        path = (bundles_dir / f"run_{int(run_id)}_bundle.json").resolve()
+        # Ensure the resolved path stays inside the bundles directory.
+        if not str(path).startswith(str(bundles_dir)):
+            return {}
         if path.exists():
             with open(path, "r", encoding="utf-8") as f:
                 return json.load(f)
