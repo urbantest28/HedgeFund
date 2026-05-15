@@ -13,7 +13,10 @@ Endpoints:
   POST /monitor                  → trigger watchlist price check manually
 """
 import json
+import os
+import signal
 import shutil
+import threading
 from pathlib import Path
 from datetime import datetime
 
@@ -23,6 +26,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from config import BASE_DIR, UPLOADS_DIR
+
+PID_FILE = BASE_DIR / "logs" / "server.pid"
 from db.database import Database
 from pipeline.orchestrator import stream_analysis, stream_resume
 from pipeline.monitor import run_monitor
@@ -162,6 +167,23 @@ async def trigger_monitor():
     """Manually trigger the watchlist price monitor."""
     summary = run_monitor(_db)
     return JSONResponse(summary)
+
+
+# ── Shutdown ──────────────────────────────────────────────────────────────────
+
+@app.post("/shutdown")
+async def shutdown():
+    """Gracefully stop the server. Returns before the signal fires."""
+    if PID_FILE.exists():
+        PID_FILE.unlink(missing_ok=True)
+
+    def _kill():
+        import time as _time
+        _time.sleep(0.5)
+        os.kill(os.getpid(), signal.CTRL_C_EVENT)
+
+    threading.Thread(target=_kill, daemon=True).start()
+    return JSONResponse({"status": "shutting_down"})
 
 
 # ── Report ────────────────────────────────────────────────────────────────────

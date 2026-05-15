@@ -135,7 +135,16 @@ class Database:
     def get_agent_outputs(self, run_id: int) -> list:
         cur = self._conn.execute(
             "SELECT * FROM agent_outputs WHERE run_id=? ORDER BY phase,agent", (run_id,))
-        return [dict(r) for r in cur.fetchall()]
+        rows = []
+        for r in cur.fetchall():
+            row = dict(r)
+            if isinstance(row.get("raw_output"), str):
+                try:
+                    row["raw_output"] = json.loads(row["raw_output"])
+                except (json.JSONDecodeError, TypeError):
+                    row["raw_output"] = {}
+            rows.append(row)
+        return rows
 
     def save_debate_round(self, run_id: int, round_number: int,
                           bull_argument: str, bear_argument: str,

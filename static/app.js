@@ -500,6 +500,19 @@ function statusBadge(status) {
   return m[status] || 'bg-gray-800 text-gray-400';
 }
 
+// ── Shutdown ──────────────────────────────────────────────────────────────────
+async function stopServer() {
+  const btn = document.getElementById('stop-btn');
+  btn.disabled = true;
+  btn.textContent = 'Stopping…';
+  try {
+    await fetch('/shutdown', { method: 'POST' });
+    btn.textContent = 'Server stopped — you can close this tab.';
+  } catch {
+    btn.textContent = 'Server stopped — you can close this tab.';
+  }
+}
+
 // ── Init ──────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   const input = document.getElementById('ticker-input');

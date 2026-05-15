@@ -3,9 +3,9 @@ from dotenv import load_dotenv
 from typing import Optional
 import os
 
-load_dotenv()
-
 BASE_DIR = Path(__file__).parent
+
+load_dotenv(BASE_DIR / ".env", override=True)
 
 ANTHROPIC_API_KEY     = os.getenv("ANTHROPIC_API_KEY", "")
 GOOGLE_API_KEY        = os.getenv("GOOGLE_API_KEY", "")
@@ -23,6 +23,8 @@ PHASE1_PROVIDER = os.getenv("PHASE1_PROVIDER", "gemini")
 PHASE1_MODEL    = os.getenv("PHASE1_MODEL", "gemini-2.0-flash")
 PHASE2_PROVIDER = os.getenv("PHASE2_PROVIDER", "gemini")
 PHASE2_MODEL    = os.getenv("PHASE2_MODEL", "gemini-2.0-flash")
+FALLBACK_PROVIDER = os.getenv("FALLBACK_PROVIDER", "anthropic")
+FALLBACK_MODEL    = os.getenv("FALLBACK_MODEL", "claude-haiku-4-5-20251001")
 DEBATE_PROVIDER = os.getenv("DEBATE_PROVIDER", "anthropic")
 DEBATE_MODEL    = os.getenv("DEBATE_MODEL", "claude-opus-4-7")
 PM_PROVIDER     = os.getenv("PM_PROVIDER", "anthropic")

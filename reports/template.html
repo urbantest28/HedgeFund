@@ -109,11 +109,11 @@
   <table class="returns-table">
     <thead><tr><th>Horizon</th><th>Bear</th><th>Base</th><th>Bull</th></tr></thead>
     <tbody>
-    {% for h in ["1m", "3m", "12m"] %}
+    {% for h, ret in pm_output.expected_returns.items() %}
       <tr><td>{{ h }}</td>
-        <td>{% if pm_output.expected_returns.bear.get(h) is not none %}{{ pm_output.expected_returns.bear.get(h) }}%{% else %}—{% endif %}</td>
-        <td>{% if pm_output.expected_returns.base.get(h) is not none %}{{ pm_output.expected_returns.base.get(h) }}%{% else %}—{% endif %}</td>
-        <td>{% if pm_output.expected_returns.bull.get(h) is not none %}{{ pm_output.expected_returns.bull.get(h) }}%{% else %}—{% endif %}</td>
+        <td>{% if ret.bear is not none %}{{ ret.bear }}%{% else %}—{% endif %}</td>
+        <td>{% if ret.base is not none %}{{ ret.base }}%{% else %}—{% endif %}</td>
+        <td>{% if ret.bull is not none %}{{ ret.bull }}%{% else %}—{% endif %}</td>
       </tr>
     {% endfor %}
     </tbody>

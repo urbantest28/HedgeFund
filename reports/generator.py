@@ -66,6 +66,15 @@ class ReportGenerator:
 
         template = self.env.get_template("template.html")
         html = template.render(**self._build_context(run_data))
+
+        css_path = TEMPLATE_DIR / "styles.css"
+        if css_path.exists():
+            css = css_path.read_text(encoding="utf-8")
+            html = html.replace(
+                '<link rel="stylesheet" href="styles.css">',
+                f"<style>\n{css}</style>",
+            )
+
         out_path.write_text(html, encoding="utf-8")
         log.bind_run(run_data["run_id"]).info(f"Generated {out_path}")
         return out_path

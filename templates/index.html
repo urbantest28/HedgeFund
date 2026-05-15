@@ -33,10 +33,16 @@
       <div class="w-8 h-8 bg-accent rounded-lg flex items-center justify-center text-white font-bold text-sm">HF</div>
       <span class="text-lg font-semibold tracking-tight">HedgeFund Analyser</span>
     </div>
-    <div class="flex gap-4 text-sm text-gray-400">
-      <button onclick="showTab('analyse')" id="tab-analyse" class="tab-btn active">Analyse</button>
-      <button onclick="showTab('watchlist')" id="tab-watchlist" class="tab-btn">Watchlist</button>
-      <button onclick="showTab('runs')" id="tab-runs" class="tab-btn">Runs</button>
+    <div class="flex items-center gap-6">
+      <div class="flex gap-4 text-sm text-gray-400">
+        <button onclick="showTab('analyse')" id="tab-analyse" class="tab-btn active">Analyse</button>
+        <button onclick="showTab('watchlist')" id="tab-watchlist" class="tab-btn">Watchlist</button>
+        <button onclick="showTab('runs')" id="tab-runs" class="tab-btn">Runs</button>
+      </div>
+      <button id="stop-btn" onclick="stopServer()"
+        class="text-xs px-3 py-1.5 border border-gray-600 text-gray-400 rounded hover:border-red-500 hover:text-red-400 transition-colors">
+        ⏻ Stop Server
+      </button>
     </div>
   </header>
 

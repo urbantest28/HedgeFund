@@ -4,7 +4,7 @@ import time
 from pathlib import Path
 from typing import Any, Optional
 
-from config import BASE_DIR, ANTHROPIC_API_KEY, GOOGLE_API_KEY
+from config import BASE_DIR, ANTHROPIC_API_KEY, GOOGLE_API_KEY, FALLBACK_MODEL
 from logger import get_logger
 
 PROMPTS_DIR = BASE_DIR / "prompts"
@@ -23,9 +23,16 @@ def _load_prompt(role_file: str, skill_files: list[str]) -> str:
 
 
 def _extract_json(raw: str) -> dict:
-    """Strip markdown code fences and parse JSON."""
+    """Strip markdown code fences and parse JSON, tolerating trailing text."""
     cleaned = re.sub(r"```(?:json)?\s*", "", raw).strip().rstrip("`").strip()
-    return json.loads(cleaned)
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError:
+        # Haiku/other models sometimes append explanation text after the JSON.
+        # Use raw_decode which stops after the first complete JSON value.
+        decoder = json.JSONDecoder()
+        obj, _ = decoder.raw_decode(cleaned)
+        return obj
 
 
 class BaseAgent:
@@ -66,10 +73,47 @@ class BaseAgent:
         )
         return message.content[0].text
 
-    def _call_llm(self, user_prompt: str) -> str:
-        if self.provider == "anthropic":
+    def _is_rate_limit_error(self, e: Exception) -> bool:
+        """Detect Gemini 429 quota errors."""
+        msg = str(e)
+        return "429" in msg or "quota" in msg.lower() or "rate" in msg.lower()
+
+    def _call_llm(self, user_prompt: str, force_provider: Optional[str] = None) -> str:
+        provider = force_provider or self.provider
+        if provider == "anthropic":
             return self._call_claude(self._system_prompt, user_prompt)
         return self._call_gemini(self._system_prompt, user_prompt)
+
+    def _call_llm_with_fallback(self, user_prompt: str, agent_log) -> str:
+        """Call primary provider; fall back to Haiku if Gemini quota is hit.
+        Retries with backoff on Anthropic rate limits."""
+        try:
+            return self._call_llm(user_prompt)
+        except Exception as e:
+            if self.provider != "anthropic" and self._is_rate_limit_error(e):
+                agent_log.warning(f"Gemini quota hit — falling back to {FALLBACK_MODEL}")
+                _orig_model, self.model = self.model, FALLBACK_MODEL
+                try:
+                    return self._call_llm_with_anthropic_retry(user_prompt, agent_log)
+                finally:
+                    self.model = _orig_model
+            raise
+
+    def _call_llm_with_anthropic_retry(self, user_prompt: str, agent_log,
+                                        max_attempts: int = 3) -> str:
+        """Call Anthropic Haiku with exponential backoff on 429 rate limits."""
+        for attempt in range(1, max_attempts + 1):
+            try:
+                return self._call_llm(user_prompt, force_provider="anthropic")
+            except Exception as e:
+                if self._is_rate_limit_error(e) and attempt < max_attempts:
+                    wait = 30 * attempt  # 30s, 60s
+                    agent_log.warning(
+                        f"Haiku rate limit (attempt {attempt}) — waiting {wait}s before retry"
+                    )
+                    time.sleep(wait)
+                else:
+                    raise
 
     def run(self, bundle: dict, run_id: int) -> dict:
         agent_log = self._log.bind_run(run_id)
@@ -79,7 +123,7 @@ class BaseAgent:
         agent_log.info(f"LLM call started | provider: {self.provider} | model: {self.model}")
         raw_text = ""
         try:
-            raw_text = self._call_llm(user_prompt)
+            raw_text = self._call_llm_with_fallback(user_prompt, agent_log)
             parsed = _extract_json(raw_text)
             duration_ms = int((time.monotonic() - t0) * 1000)
             agent_log.info(
@@ -104,7 +148,7 @@ class BaseAgent:
         except Exception as e:
             agent_log.warning(f"LLM call failed (attempt 1): {e} — retrying")
             try:
-                raw_text = self._call_llm(user_prompt)
+                raw_text = self._call_llm_with_fallback(user_prompt, agent_log)
                 parsed = _extract_json(raw_text)
                 duration_ms = int((time.monotonic() - t0) * 1000)
                 agent_log.info(f"LLM retry succeeded | duration: {duration_ms}ms")
