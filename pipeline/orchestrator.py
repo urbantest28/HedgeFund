@@ -285,7 +285,9 @@ async def _run_pipeline(
 
         # ── Phase 3 — Debate ─────────────────────────────────────────────────────
         await queue.put({"event": "phase_start", "phase": 3, "agents": ["bull", "bear"]})
-        debate_gen = run_debate(bundle, run_id, db, loop)
+        debate_gen = run_debate(bundle, run_id, db, loop,
+                                debate_model=model_config.debate_model if model_config else None,
+                                debate_provider=model_config.debate_provider if model_config else None)
         debate_meta = {}
         async for event in debate_gen:
             await queue.put(event)
@@ -305,6 +307,15 @@ async def _run_pipeline(
         await queue.put({"event": "phase_start", "phase": 4,
                          "agents": ["portfolio_manager"]})
         pm = PortfolioManagerAgent()
+        if model_config is not None:
+            pm.model    = model_config.pm_model
+            pm.provider = model_config.pm_provider
+        await queue.put({
+            "event": "agent_log",
+            "agent": "portfolio_manager",
+            "phase": 4,
+            "model": pm.model,
+        })
         pm_result = await loop.run_in_executor(None, pm.run, bundle, run_id)
 
         db.save_agent_output(
@@ -325,6 +336,8 @@ async def _run_pipeline(
             "score": pm_result["score"],
             "data_confidence": pm_result["data_confidence"],
             "status": pm_result["status"],
+            "summary": pm_result.get("summary"),
+            "duration_ms": pm_result.get("duration_ms"),
         })
 
         raw = pm_result["raw_output"]

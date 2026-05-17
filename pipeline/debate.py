@@ -18,6 +18,8 @@ async def run_debate(
     run_id: int,
     db: Database,
     loop: asyncio.AbstractEventLoop,
+    debate_model: str = None,
+    debate_provider: str = None,
 ) -> AsyncGenerator[dict, None]:
     """
     Async generator yielding SSE-ready event dicts.
@@ -25,7 +27,18 @@ async def run_debate(
     """
     bull = BullAgent()
     bear = BearAgent()
+
+    if debate_model is not None:
+        bull.model = debate_model
+        bear.model = debate_model
+    if debate_provider is not None:
+        bull.provider = debate_provider
+        bear.provider = debate_provider
+
     agent_log = _log.bind_run(run_id)
+
+    yield {"event": "agent_log", "agent": "bull", "phase": 3, "model": bull.model}
+    yield {"event": "agent_log", "agent": "bear", "phase": 3, "model": bear.model}
 
     transcript: list[dict] = []
     bull_argument = ""
