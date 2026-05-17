@@ -49,20 +49,107 @@
   <!-- Analyse Tab -->
   <div id="pane-analyse" class="tab-pane p-6 max-w-5xl mx-auto">
 
-    <!-- Input panel -->
-    <div class="bg-card border border-border rounded-xl p-6 mb-6">
-      <h2 class="text-sm text-gray-400 uppercase tracking-widest mb-4">New Analysis</h2>
-      <div class="flex gap-3">
-        <input id="ticker-input" type="text" placeholder="AAPL"
-          class="flex-1 bg-surface border border-border rounded-lg px-4 py-3 text-lg uppercase tracking-widest
-                 focus:outline-none focus:border-accent placeholder-gray-600"
-          maxlength="10" />
-        <button id="analyse-btn" onclick="startAnalysis()"
-          class="px-8 py-3 bg-accent hover:bg-indigo-500 text-white rounded-lg font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
-          Analyse
-        </button>
+    <!-- New Analysis button -->
+    <div class="mb-6 flex justify-end">
+      <button onclick="openModal()"
+        class="px-5 py-2.5 bg-accent hover:bg-indigo-500 text-white rounded-lg font-semibold text-sm transition-colors flex items-center gap-2">
+        + New Analysis
+      </button>
+    </div>
+
+    <!-- Configuration Modal -->
+    <div id="config-modal" class="modal-overlay hidden" onclick="onModalOverlayClick(event)">
+      <div class="modal-box" onclick="event.stopPropagation()">
+
+        <!-- Modal header -->
+        <div class="modal-header">
+          <h2 class="text-sm font-semibold tracking-widest text-gray-300 uppercase">Configure Analysis Run</h2>
+          <button onclick="closeModal()" class="text-gray-500 hover:text-gray-300 text-lg leading-none">&times;</button>
+        </div>
+
+        <!-- Ticker input -->
+        <div class="modal-section">
+          <label class="modal-label">Stock Ticker</label>
+          <input id="ticker-input" type="text" placeholder="AAPL" maxlength="10" oninput="onTickerInput(this)"
+            class="ticker-field" autocomplete="off" spellcheck="false" />
+        </div>
+
+        <!-- Phase rows -->
+        <div class="modal-section">
+          <label class="modal-label">Phase 1 — Data Analysts</label>
+          <div class="model-cards-row">
+            <button class="model-card selected" data-phase="phase1" data-model="gemini-2.0-flash" onclick="selectModel(this)">
+              <span class="model-name">Gemini 2.0 Flash</span>
+              <span class="badge badge-free">FREE</span>
+            </button>
+            <button class="model-card" data-phase="phase1" data-model="claude-haiku-4-5-20251001" onclick="selectModel(this)">
+              <span class="model-name">Claude Haiku 4.5</span>
+              <span class="badge badge-cheap">~£0.03</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="modal-section">
+          <label class="modal-label">Phase 2 — Assessment</label>
+          <div class="model-cards-row">
+            <button class="model-card selected" data-phase="phase2" data-model="gemini-2.0-flash" onclick="selectModel(this)">
+              <span class="model-name">Gemini 2.0 Flash</span>
+              <span class="badge badge-free">FREE</span>
+            </button>
+            <button class="model-card" data-phase="phase2" data-model="claude-haiku-4-5-20251001" onclick="selectModel(this)">
+              <span class="model-name">Claude Haiku 4.5</span>
+              <span class="badge badge-cheap">~£0.02</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="modal-section">
+          <label class="modal-label">Phase 3 — Bull/Bear Debate</label>
+          <div class="model-cards-row">
+            <button class="model-card selected" data-phase="debate" data-model="claude-opus-4-7" onclick="selectModel(this)">
+              <span class="model-name">Claude Opus 4.7</span>
+              <span class="badge badge-best">~£0.20</span>
+            </button>
+            <button class="model-card" data-phase="debate" data-model="claude-opus-4-6-20250514" onclick="selectModel(this)">
+              <span class="model-name">Claude Opus 4.6</span>
+              <span class="badge badge-cheap">~£0.14</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="modal-section">
+          <label class="modal-label">Phase 4 — Portfolio Manager</label>
+          <div class="model-cards-row">
+            <button class="model-card selected" data-phase="pm" data-model="claude-opus-4-7" onclick="selectModel(this)">
+              <span class="model-name">Claude Opus 4.7</span>
+              <span class="badge badge-best">~£0.14</span>
+            </button>
+            <button class="model-card" data-phase="pm" data-model="claude-opus-4-6-20250514" onclick="selectModel(this)">
+              <span class="model-name">Claude Opus 4.6</span>
+              <span class="badge badge-cheap">~£0.10</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Cost estimate -->
+        <div class="cost-bar">
+          <div class="cost-bar-inner">
+            <span class="cost-label">Estimated cost:</span>
+            <span id="cost-estimate" class="cost-value">FREE – £0.34</span>
+            <span class="cost-sep">·</span>
+            <span id="runtime-estimate" class="cost-runtime">3–5 min</span>
+          </div>
+        </div>
+
+        <!-- Start button -->
+        <div class="modal-footer">
+          <button id="start-btn" onclick="startAnalysis()" disabled
+            class="start-btn">
+            Start Analysis ▶
+          </button>
+        </div>
+
       </div>
-      <p class="text-xs text-gray-500 mt-2">Enter a stock ticker. Analysis takes 3–5 minutes.</p>
     </div>
 
     <!-- Live progress panel (hidden until analysis starts) -->
@@ -80,27 +167,31 @@
       <!-- Phase 1 -->
       <div class="phase-card bg-card border border-border rounded-xl p-5 mb-4">
         <div class="flex items-center justify-between mb-3">
-          <h3 class="font-semibold text-sm">Phase 1 — Data Analysts <span class="text-gray-500">(Gemini)</span></h3>
+          <h3 class="font-semibold text-sm">Phase 1 — Data Analysts <span id="p1-model-tag" class="text-gray-500 text-xs font-normal ml-1"></span></h3>
           <span id="p1-status" class="phase-status text-xs text-gray-500">Waiting</span>
         </div>
-        <div id="p1-agents" class="grid grid-cols-5 gap-2"></div>
+        <div id="p1-agents" class="flex flex-wrap gap-2"></div>
+        <div id="p1-expand" class="agent-expand-area"></div>
       </div>
 
       <!-- Phase 2 -->
       <div class="phase-card bg-card border border-border rounded-xl p-5 mb-4">
         <div class="flex items-center justify-between mb-3">
-          <h3 class="font-semibold text-sm">Phase 2 — Assessment <span class="text-gray-500">(Gemini)</span></h3>
+          <h3 class="font-semibold text-sm">Phase 2 — Assessment <span id="p2-model-tag" class="text-gray-500 text-xs font-normal ml-1"></span></h3>
           <span id="p2-status" class="phase-status text-xs text-gray-500">Waiting</span>
         </div>
-        <div id="p2-agents" class="grid grid-cols-3 gap-2"></div>
+        <div id="p2-agents" class="flex flex-wrap gap-2"></div>
+        <div id="p2-expand" class="agent-expand-area"></div>
       </div>
 
       <!-- Phase 3 — Debate -->
       <div class="phase-card bg-card border border-border rounded-xl p-5 mb-4">
         <div class="flex items-center justify-between mb-3">
-          <h3 class="font-semibold text-sm">Phase 3 — Bull vs Bear Debate <span class="text-gray-500">(Claude Opus)</span></h3>
+          <h3 class="font-semibold text-sm">Phase 3 — Bull vs Bear Debate <span id="p3-model-tag" class="text-gray-500 text-xs font-normal ml-1"></span></h3>
           <span id="p3-status" class="phase-status text-xs text-gray-500">Waiting</span>
         </div>
+        <div id="p3-agents" class="flex flex-wrap gap-2 mb-3"></div>
+        <div id="p3-expand" class="agent-expand-area"></div>
         <div id="debate-feed" class="space-y-3 max-h-96 overflow-y-auto"></div>
         <div id="debate-summary" class="hidden mt-3 pt-3 border-t border-border text-sm"></div>
       </div>
@@ -108,9 +199,11 @@
       <!-- Phase 4 -->
       <div class="phase-card bg-card border border-border rounded-xl p-5 mb-4">
         <div class="flex items-center justify-between mb-3">
-          <h3 class="font-semibold text-sm">Phase 4 — Portfolio Manager <span class="text-gray-500">(Claude Opus)</span></h3>
+          <h3 class="font-semibold text-sm">Phase 4 — Portfolio Manager <span id="p4-model-tag" class="text-gray-500 text-xs font-normal ml-1"></span></h3>
           <span id="p4-status" class="phase-status text-xs text-gray-500">Waiting</span>
         </div>
+        <div id="p4-agents" class="flex flex-wrap gap-2 mb-3"></div>
+        <div id="p4-expand" class="agent-expand-area"></div>
         <div id="pm-output"></div>
       </div>
 
