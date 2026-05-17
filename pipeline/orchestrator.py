@@ -8,6 +8,7 @@ of JSON-serialisable event dicts.
 import asyncio
 import json
 import time
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import AsyncGenerator, Optional
@@ -33,10 +34,40 @@ from data.cache_manager import CacheManager
 from db.database import Database
 from pipeline.debate import run_debate
 from reports.generator import ReportGenerator, build_run_data
-from config import BASE_DIR, DEBUG_BUNDLES_DIR, sanitize_ticker, safe_path
+from config import (BASE_DIR, DEBUG_BUNDLES_DIR, sanitize_ticker, safe_path,
+                    PHASE1_MODEL, PHASE1_PROVIDER, PHASE2_MODEL, PHASE2_PROVIDER,
+                    DEBATE_MODEL, DEBATE_PROVIDER, PM_MODEL, PM_PROVIDER)
 from logger import get_logger
 
 _log = get_logger("orchestrator")
+
+
+@dataclass
+class ModelConfig:
+    phase1_model: str = PHASE1_MODEL
+    phase1_provider: str = PHASE1_PROVIDER
+    phase2_model: str = PHASE2_MODEL
+    phase2_provider: str = PHASE2_PROVIDER
+    debate_model: str = DEBATE_MODEL
+    debate_provider: str = DEBATE_PROVIDER
+    pm_model: str = PM_MODEL
+    pm_provider: str = PM_PROVIDER
+
+    @classmethod
+    def from_request(cls, data: dict) -> "ModelConfig":
+        def provider(model: str) -> str:
+            return "gemini" if model.startswith("gemini") else "anthropic"
+
+        p1m = data.get("phase1_model", PHASE1_MODEL)
+        p2m = data.get("phase2_model", PHASE2_MODEL)
+        dm  = data.get("debate_model", DEBATE_MODEL)
+        pmm = data.get("pm_model", PM_MODEL)
+        return cls(
+            phase1_model=p1m,   phase1_provider=provider(p1m),
+            phase2_model=p2m,   phase2_provider=provider(p2m),
+            debate_model=dm,    debate_provider=provider(dm),
+            pm_model=pmm,       pm_provider=provider(pmm),
+        )
 
 PHASE1_AGENT_CLASSES = [
     FundamentalAgent,
