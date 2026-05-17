@@ -6,7 +6,26 @@
 let currentRunId = null;
 let activeSource = null;
 
+// Per-phase selected model (keyed by "phase1","phase2","debate","pm")
+const selectedModels = {
+  phase1: 'gemini-2.0-flash',
+  phase2: 'gemini-2.0-flash',
+  debate: 'claude-opus-4-7',
+  pm:     'claude-opus-4-7',
+};
+
+// Per-agent expand state: { [agentName]: { expanded, status, data, elapsedStart, timerId } }
+const agentExpandState = {};
+
 const SCORE_LABELS = { 1: 'Strong Buy', 2: 'Buy', 3: 'Neutral', 4: 'Sell', 5: 'Strong Sell' };
+
+// Cost lookup: model → cost in pence (for estimate calculation)
+const COST_TABLE = {
+  'gemini-2.0-flash':       { cost: 0, label: 'FREE' },
+  'claude-haiku-4-5-20251001': { cost: 3, label: '~£0.03' },
+  'claude-opus-4-7':           { cost: 17, label: '~£0.17' },
+  'claude-opus-4-6-20250514':  { cost: 12, label: '~£0.12' },
+};
 
 // ── Tab routing ───────────────────────────────────────────────────────────────
 function showTab(name) {
@@ -18,21 +37,67 @@ function showTab(name) {
   if (name === 'runs') loadRuns();
 }
 
+// ── Modal ─────────────────────────────────────────────────────────────────────
+function openModal() {
+  document.getElementById('config-modal').classList.remove('hidden');
+  document.getElementById('ticker-input').focus();
+}
+
+function closeModal() {
+  document.getElementById('config-modal').classList.add('hidden');
+}
+
+function onModalOverlayClick(e) {
+  if (e.target === document.getElementById('config-modal')) closeModal();
+}
+
+function onTickerInput(input) {
+  const val = input.value.trim();
+  document.getElementById('start-btn').disabled = val.length === 0;
+}
+
+function selectModel(btn) {
+  const phase = btn.dataset.phase;
+  const model = btn.dataset.model;
+  // Deselect siblings
+  btn.closest('.model-cards-row').querySelectorAll('.model-card').forEach(c => c.classList.remove('selected'));
+  btn.classList.add('selected');
+  selectedModels[phase] = model;
+  updateCostEstimate();
+}
+
+function updateCostEstimate() {
+  const p1 = COST_TABLE[selectedModels.phase1] || { cost: 0, label: 'FREE' };
+  const p2 = COST_TABLE[selectedModels.phase2] || { cost: 0, label: 'FREE' };
+  const db = COST_TABLE[selectedModels.debate] || { cost: 17, label: '~£0.17' };
+  const pm = COST_TABLE[selectedModels.pm]     || { cost: 17, label: '~£0.17' };
+
+  const totalPence = p1.cost + p2.cost + db.cost + pm.cost;
+  const totalStr = totalPence === 0 ? 'FREE' : `~£${(totalPence / 100).toFixed(2)}`;
+  document.getElementById('cost-estimate').textContent = totalStr;
+}
+
 // ── Analysis ──────────────────────────────────────────────────────────────────
 function startAnalysis() {
   const ticker = document.getElementById('ticker-input').value.trim().toUpperCase();
   if (!ticker) return;
 
+  closeModal();
   resetProgressPanel(ticker);
   document.getElementById('progress-panel').classList.remove('hidden');
-  document.getElementById('analyse-btn').disabled = true;
 
   if (activeSource) activeSource.close();
 
   fetch('/analyse', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ticker }),
+    body: JSON.stringify({
+      ticker,
+      phase1_model: selectedModels.phase1,
+      phase2_model: selectedModels.phase2,
+      debate_model: selectedModels.debate,
+      pm_model:     selectedModels.pm,
+    }),
   }).then(res => {
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
@@ -55,12 +120,16 @@ function startAnalysis() {
     pump();
   }).catch(err => {
     showError('Connection failed: ' + err.message);
-    document.getElementById('analyse-btn').disabled = false;
   });
 }
 
 function resetProgressPanel(ticker) {
   currentRunId = null;
+
+  // Clear expand state and timers
+  Object.values(agentExpandState).forEach(s => { if (s.timerId) clearInterval(s.timerId); });
+  Object.keys(agentExpandState).forEach(k => delete agentExpandState[k]);
+
   document.getElementById('run-ticker').textContent = ticker;
   document.getElementById('run-id-badge').textContent = 'run #–';
   document.getElementById('run-status-badge').textContent = 'Running';
@@ -70,9 +139,13 @@ function resetProgressPanel(ticker) {
   ['p1','p2','p3','p4'].forEach(p => {
     const s = document.getElementById(p + '-status');
     if (s) { s.textContent = 'Waiting'; s.className = 'phase-status text-xs text-gray-500'; }
+    const ex = document.getElementById(p + '-expand');
+    if (ex) ex.innerHTML = '';
+    const ag = document.getElementById(p + '-agents');
+    if (ag) ag.innerHTML = '';
+    const mt = document.getElementById(p + '-model-tag');
+    if (mt) mt.textContent = '';
   });
-  document.getElementById('p1-agents').innerHTML = '';
-  document.getElementById('p2-agents').innerHTML = '';
   document.getElementById('debate-feed').innerHTML = '';
   document.getElementById('debate-summary').classList.add('hidden');
   document.getElementById('pm-output').innerHTML = '';
@@ -88,6 +161,11 @@ function handleEvent(ev) {
     case 'run_resume':
       currentRunId = ev.run_id;
       document.getElementById('run-id-badge').textContent = 'run #' + ev.run_id;
+      // Update model tags from selected config
+      setModelTag('p1', selectedModels.phase1);
+      setModelTag('p2', selectedModels.phase2);
+      setModelTag('p3', selectedModels.debate);
+      setModelTag('p4', selectedModels.pm);
       break;
 
     case 'fetch_start':
@@ -100,6 +178,10 @@ function handleEvent(ev) {
 
     case 'phase_start':
       onPhaseStart(ev);
+      break;
+
+    case 'agent_log':
+      onAgentLog(ev);
       break;
 
     case 'agent_complete':
@@ -136,40 +218,94 @@ function handleEvent(ev) {
   }
 }
 
+// ── Model tag helper ──────────────────────────────────────────────────────────
+function setModelTag(phaseKey, model) {
+  const el = document.getElementById(phaseKey + '-model-tag');
+  if (!el) return;
+  const short = modelShortName(model);
+  el.textContent = short ? '(' + short + ')' : '';
+}
+
+function modelShortName(model) {
+  if (!model) return '';
+  if (model.startsWith('gemini')) return 'Gemini Flash';
+  if (model.includes('haiku')) return 'Haiku 4.5';
+  if (model.includes('opus-4-7')) return 'Opus 4.7';
+  if (model.includes('opus-4-6')) return 'Opus 4.6';
+  return model;
+}
+
 // ── Phase handlers ────────────────────────────────────────────────────────────
 function onPhaseStart(ev) {
   const key = 'p' + ev.phase;
   setPhaseStatus(key, '<span class="spinner"></span> Running', 'text-indigo-400');
 
-  if (ev.phase === 1) renderAgentChips('p1-agents', ev.agents);
-  if (ev.phase === 2) renderAgentChips('p2-agents', ev.agents);
-  if (ev.phase === 3) setPhaseStatus('p3', '<span class="spinner"></span> Debating', 'text-indigo-400');
+  if (ev.phase === 1) renderAgentChips('p1-agents', ev.agents, 1);
+  if (ev.phase === 2) renderAgentChips('p2-agents', ev.agents, 2);
+  if (ev.phase === 3) {
+    renderAgentChips('p3-agents', ev.agents, 3);
+    setPhaseStatus('p3', '<span class="spinner"></span> Debating', 'text-indigo-400');
+  }
   if (ev.phase === 4) {
+    renderAgentChips('p4-agents', ev.agents, 4);
     setPhaseStatus('p4', '<span class="spinner"></span> Synthesising', 'text-indigo-400');
     document.getElementById('pm-output').innerHTML =
       '<p class="text-xs text-gray-500">Portfolio Manager thinking…</p>';
   }
 }
 
+// ── agent_log: agent about to be dispatched ───────────────────────────────────
+function onAgentLog(ev) {
+  const state = agentExpandState[ev.agent];
+  if (!state) return;
+  state.model = ev.model;
+  state.elapsedStart = Date.now();
+
+  // If expand panel is open, update it
+  if (state.expanded) renderAgentDetail(ev.agent, ev.phase);
+
+  // Start elapsed timer
+  if (state.timerId) clearInterval(state.timerId);
+  state.timerId = setInterval(() => {
+    const detailEl = document.getElementById('detail-' + ev.agent);
+    if (detailEl && state.status === 'running') {
+      const secs = Math.floor((Date.now() - state.elapsedStart) / 1000);
+      const et = detailEl.querySelector('.elapsed-timer');
+      if (et) et.textContent = secs + 's';
+    }
+  }, 1000);
+}
+
+// ── onAgentComplete ───────────────────────────────────────────────────────────
 function onAgentComplete(ev) {
   const chip = document.getElementById('chip-' + ev.agent);
   if (!chip) return;
 
+  // Update chip appearance
   chip.classList.remove('running');
   chip.classList.add(ev.status === 'failed' ? 'failed' : 'complete');
 
-  const scoreEl = chip.querySelector('.chip-score');
-  const confEl  = chip.querySelector('.chip-conf');
-  if (scoreEl) scoreEl.textContent = ev.score != null ? ev.score + '/10' : '—';
-  if (confEl) {
-    confEl.textContent = ev.data_confidence || '';
-    confEl.className = 'chip-conf ' + (ev.data_confidence || '');
+  const dot = chip.querySelector('.chip-dot');
+  if (dot) { dot.className = 'chip-dot ' + (ev.status === 'failed' ? 'failed' : 'done'); }
+
+  // Store result in expand state
+  const state = agentExpandState[ev.agent];
+  if (state) {
+    state.status = ev.status === 'failed' ? 'failed' : 'complete';
+    if (state.timerId) { clearInterval(state.timerId); state.timerId = null; }
+    state.result = ev;
+    if (state.expanded) renderAgentDetail(ev.agent, ev.phase);
+  }
+
+  // Update chip label to show score
+  const nameSpan = chip.querySelector('.chip-label');
+  if (nameSpan && ev.score != null) {
+    nameSpan.textContent = fmtAgentName(ev.agent) + ' · ' + ev.score;
   }
 }
 
 function onPhaseComplete(ev) {
-  const key = 'p' + ev.phase;
-  setPhaseStatus(key, 'Complete', 'text-green-400');
+  setPhaseStatus('p' + ev.phase, 'Complete', 'text-green-400');
 }
 
 // ── Debate handlers ───────────────────────────────────────────────────────────
@@ -210,6 +346,19 @@ function onDebateComplete(ev) {
     : '<span class="text-green-400 font-semibold">Consensus reached</span>';
   summary.innerHTML = `${label} &nbsp;|&nbsp; ${ev.rounds} rounds &nbsp;|&nbsp; Bull: ${ev.bull_score} · Bear: ${ev.bear_score}`;
   setPhaseStatus('p3', ev.contested ? 'Contested' : 'Consensus', ev.contested ? 'text-yellow-400' : 'text-green-400');
+
+  // Mark bull/bear chips as complete
+  ['bull', 'bear'].forEach(name => {
+    const chip = document.getElementById('chip-' + name);
+    if (chip) {
+      chip.classList.remove('running');
+      chip.classList.add('complete');
+      const dot = chip.querySelector('.chip-dot');
+      if (dot) dot.className = 'chip-dot done';
+    }
+    const state = agentExpandState[name];
+    if (state) { state.status = 'complete'; }
+  });
 }
 
 // ── Verdict ───────────────────────────────────────────────────────────────────
@@ -241,9 +390,7 @@ function onVerdict(ev) {
   document.getElementById('verdict-stop').textContent   = ev.stop_loss   ? '$' + fmtNum(ev.stop_loss)   : '—';
   document.getElementById('verdict-target').textContent = ev.target_price ? '$' + fmtNum(ev.target_price) : '—';
 
-  if (ev.expected_returns) {
-    renderReturnsTable(ev.expected_returns);
-  }
+  if (ev.expected_returns) renderReturnsTable(ev.expected_returns);
 
   document.getElementById('verdict-reasoning').textContent = ev.reasoning || '';
 
@@ -287,7 +434,6 @@ function onComplete(ev) {
   const badge = document.getElementById('run-status-badge');
   badge.textContent = 'Complete';
   badge.className = 'text-xs px-3 py-1 rounded-full bg-green-900 text-green-300';
-  document.getElementById('analyse-btn').disabled = false;
 }
 
 function onAbort(ev) {
@@ -299,8 +445,6 @@ function onAbort(ev) {
   card.classList.remove('hidden');
   document.getElementById('abort-reason').textContent =
     ev.reason + (ev.agents ? ' (' + ev.agents.join(', ') + ')' : '');
-
-  document.getElementById('analyse-btn').disabled = false;
 }
 
 function showError(msg) {
@@ -310,11 +454,129 @@ function showError(msg) {
     badge.className = 'text-xs px-3 py-1 rounded-full bg-red-900 text-red-300';
   }
   console.error('[hf] Error:', msg);
-  document.getElementById('analyse-btn').disabled = false;
 }
 
 function onStreamDone() {
-  document.getElementById('analyse-btn').disabled = false;
+  // no-op — start button is in the modal now
+}
+
+// ── Agent chips ───────────────────────────────────────────────────────────────
+function renderAgentChips(containerId, agents, phase) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = '';
+  agents.forEach(name => {
+    // Init expand state
+    agentExpandState[name] = { expanded: false, status: 'running', result: null, model: null, elapsedStart: null, timerId: null, phase };
+
+    const btn = document.createElement('button');
+    btn.className = 'agent-chip running';
+    btn.id = 'chip-' + name;
+    btn.dataset.agent = name;
+    btn.dataset.phase = phase;
+    btn.innerHTML = `<span class="chip-dot running"></span><span class="chip-label">${fmtAgentName(name)}</span>`;
+    btn.addEventListener('click', () => toggleAgentExpand(name, phase));
+    el.appendChild(btn);
+  });
+}
+
+// ── Agent expand ──────────────────────────────────────────────────────────────
+function toggleAgentExpand(agentName, phase) {
+  const state = agentExpandState[agentName];
+  if (!state) return;
+
+  state.expanded = !state.expanded;
+
+  const chip = document.getElementById('chip-' + agentName);
+  if (chip) chip.classList.toggle('expanded', state.expanded);
+
+  const expandArea = document.getElementById('p' + phase + '-expand');
+  if (!expandArea) return;
+
+  const existingDetail = document.getElementById('detail-' + agentName);
+
+  if (!state.expanded) {
+    if (existingDetail) existingDetail.remove();
+    return;
+  }
+
+  // Insert detail panel
+  if (!existingDetail) {
+    const div = document.createElement('div');
+    div.id = 'detail-' + agentName;
+    div.className = 'agent-detail';
+    expandArea.appendChild(div);
+  }
+  renderAgentDetail(agentName, phase);
+}
+
+function renderAgentDetail(agentName, phase) {
+  const state = agentExpandState[agentName];
+  const detailEl = document.getElementById('detail-' + agentName);
+  if (!detailEl || !state) return;
+
+  const displayName = fmtAgentName(agentName);
+
+  if (state.status === 'running') {
+    const elapsed = state.elapsedStart ? Math.floor((Date.now() - state.elapsedStart) / 1000) : 0;
+    const modelStr = state.model ? escHtml(state.model) : '…';
+    detailEl.innerHTML = `
+      <div class="detail-header">
+        <span class="detail-name">${escHtml(displayName)}</span>
+        <span class="detail-pill pill-running">● Running</span>
+      </div>
+      <div class="detail-body">
+        <div class="running-log">
+          <div class="log-line"><span class="log-ts">00:00</span><span class="log-msg">Dispatching to <span class="log-hl">${modelStr}</span>…</span></div>
+          <div class="log-line"><span class="log-ts"><span class="elapsed-timer">${elapsed}s</span></span><span class="log-msg">Waiting for response <span class="log-cursor"></span></span></div>
+        </div>
+      </div>`;
+  } else {
+    const r = state.result || {};
+    const score = r.score != null ? r.score : '—';
+    const conf  = r.data_confidence || '';
+    const dur   = r.duration_ms != null ? (r.duration_ms / 1000).toFixed(1) + 's' : '';
+    const confClass = conf === 'full' ? 'conf-full' : conf === 'partial' ? 'conf-partial' : 'conf-minimal';
+    const pillClass = state.status === 'failed' ? 'pill-failed' : 'pill-done';
+    const pillText  = state.status === 'failed' ? '✗ Failed' : '✓ Complete';
+
+    const bull = Array.isArray(r.bull_points) ? r.bull_points : [];
+    const bear = Array.isArray(r.bear_points) ? r.bear_points : [];
+    const missing = Array.isArray(r.missing_fields) ? r.missing_fields : [];
+
+    const bullHtml = bull.map(p => `<div class="point-item bull">${escHtml(p)}</div>`).join('');
+    const bearHtml = bear.map(p => `<div class="point-item bear">${escHtml(p)}</div>`).join('');
+    const missingHtml = missing.length ? `
+      <div class="detail-missing">
+        <div class="missing-lbl">⚠ Missing fields</div>
+        ${missing.map(m => `<div class="missing-item">${escHtml(m)}</div>`).join('')}
+      </div>` : '';
+
+    const pointsHtml = (bull.length || bear.length) ? `
+      <div class="detail-points">
+        <div><div class="points-label bull">Bull</div>${bullHtml}</div>
+        <div><div class="points-label bear">Bear</div>${bearHtml}</div>
+      </div>` : '';
+
+    detailEl.innerHTML = `
+      <div class="detail-header">
+        <span class="detail-name">${escHtml(displayName)}</span>
+        <span class="detail-pill ${pillClass}">${pillText}</span>
+      </div>
+      <div class="detail-body">
+        <div class="detail-score-row">
+          <div>
+            <div class="detail-score-num">${score}<span style="font-size:0.7rem;color:#6b7280;font-weight:400"> / 10</span></div>
+            <div class="detail-score-lbl">Score</div>
+          </div>
+          ${conf ? `<div><span class="conf-badge ${confClass}">${conf}</span><div class="detail-score-lbl" style="margin-top:3px">Data quality</div></div>` : ''}
+          ${dur ? `<div class="detail-dur">${dur}</div>` : ''}
+        </div>
+        ${r.summary ? `<div class="detail-summary">${escHtml(r.summary)}</div>` : ''}
+        ${pointsHtml}
+        ${missingHtml}
+      </div>`;
+  }
 }
 
 // ── Upload / Resume ───────────────────────────────────────────────────────────
@@ -382,7 +644,6 @@ function loadWatchlist() {
         <th>Added</th><th>Status</th>
       </tr></thead><tbody>`;
     entries.forEach(e => {
-      const scoreCls = 'score-' + (e.score || 3);
       const entry = e.entry_low && e.entry_high ? `$${fmtNum(e.entry_low)}–$${fmtNum(e.entry_high)}` : '—';
       const contested = e.contested ? ' <span class="text-yellow-400">⚠</span>' : '';
       html += `<tr>
@@ -431,22 +692,6 @@ function loadRuns() {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function renderAgentChips(containerId, agents) {
-  const el = document.getElementById(containerId);
-  el.innerHTML = '';
-  agents.forEach(name => {
-    const chip = document.createElement('div');
-    chip.className = 'agent-chip running';
-    chip.id = 'chip-' + name;
-    chip.innerHTML = `
-      <span class="chip-name">${fmtAgentName(name)}</span>
-      <span class="chip-score">…</span>
-      <span class="chip-conf"></span>
-    `;
-    el.appendChild(chip);
-  });
-}
-
 function setPhaseStatus(key, html, cls) {
   const el = document.getElementById(key + '-status');
   if (!el) return;
@@ -515,7 +760,11 @@ async function stopServer() {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  const input = document.getElementById('ticker-input');
-  input.addEventListener('keydown', e => { if (e.key === 'Enter') startAnalysis(); });
+  // Keyboard shortcut: Escape closes modal
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeModal();
+  });
+
+  updateCostEstimate();
   showTab('analyse');
 });

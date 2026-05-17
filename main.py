@@ -29,7 +29,7 @@ from config import BASE_DIR, UPLOADS_DIR, REPORTS_DIR, sanitize_ticker, safe_pat
 
 PID_FILE = BASE_DIR / "logs" / "server.pid"
 from db.database import Database
-from pipeline.orchestrator import stream_analysis, stream_resume
+from pipeline.orchestrator import stream_analysis, stream_resume, ModelConfig
 from pipeline.monitor import run_monitor
 from reports.generator import ReportGenerator, build_run_data
 from logger import get_logger
@@ -55,7 +55,7 @@ async def index(request: Request):
 @app.post("/analyse")
 async def analyse(request: Request):
     """
-    Expects JSON body: {"ticker": "AAPL"}.
+    Expects JSON body: {"ticker": "AAPL", "phase1_model": ..., ...}.
     Returns SSE stream.
     """
     body = await request.json()
@@ -63,10 +63,11 @@ async def analyse(request: Request):
     if not ticker:
         raise HTTPException(400, "ticker required")
 
-    _log.info(f"Analyse request | ticker: {ticker}")
+    model_config = ModelConfig.from_request(body)
+    _log.info(f"Analyse request | ticker: {ticker} | p1: {model_config.phase1_model} | p2: {model_config.phase2_model}")
 
     return StreamingResponse(
-        stream_analysis(ticker, _db),
+        stream_analysis(ticker, _db, model_config=model_config),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

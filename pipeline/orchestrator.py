@@ -8,6 +8,7 @@ of JSON-serialisable event dicts.
 import asyncio
 import json
 import time
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import AsyncGenerator, Optional
@@ -33,10 +34,40 @@ from data.cache_manager import CacheManager
 from db.database import Database
 from pipeline.debate import run_debate
 from reports.generator import ReportGenerator, build_run_data
-from config import BASE_DIR, DEBUG_BUNDLES_DIR, sanitize_ticker, safe_path
+from config import (BASE_DIR, DEBUG_BUNDLES_DIR, sanitize_ticker, safe_path,
+                    PHASE1_MODEL, PHASE1_PROVIDER, PHASE2_MODEL, PHASE2_PROVIDER,
+                    DEBATE_MODEL, DEBATE_PROVIDER, PM_MODEL, PM_PROVIDER)
 from logger import get_logger
 
 _log = get_logger("orchestrator")
+
+
+@dataclass
+class ModelConfig:
+    phase1_model: str = PHASE1_MODEL
+    phase1_provider: str = PHASE1_PROVIDER
+    phase2_model: str = PHASE2_MODEL
+    phase2_provider: str = PHASE2_PROVIDER
+    debate_model: str = DEBATE_MODEL
+    debate_provider: str = DEBATE_PROVIDER
+    pm_model: str = PM_MODEL
+    pm_provider: str = PM_PROVIDER
+
+    @classmethod
+    def from_request(cls, data: dict) -> "ModelConfig":
+        def provider(model: str) -> str:
+            return "gemini" if model.startswith("gemini") else "anthropic"
+
+        p1m = data.get("phase1_model", PHASE1_MODEL)
+        p2m = data.get("phase2_model", PHASE2_MODEL)
+        dm  = data.get("debate_model", DEBATE_MODEL)
+        pmm = data.get("pm_model", PM_MODEL)
+        return cls(
+            phase1_model=p1m,   phase1_provider=provider(p1m),
+            phase2_model=p2m,   phase2_provider=provider(p2m),
+            debate_model=dm,    debate_provider=provider(dm),
+            pm_model=pmm,       pm_provider=provider(pmm),
+        )
 
 PHASE1_AGENT_CLASSES = [
     FundamentalAgent,
@@ -70,9 +101,19 @@ async def _run_phase_parallel(
     loop: asyncio.AbstractEventLoop,
     queue: asyncio.Queue,
     phase: int,
+    model_config: Optional["ModelConfig"] = None,
 ) -> list[dict]:
     """Run a list of agent classes in parallel, emit events, save outputs to DB."""
     agents = [cls() for cls in agent_classes]
+
+    # Apply per-run model overrides if provided
+    if model_config is not None:
+        override_model    = model_config.phase1_model    if phase == 1 else model_config.phase2_model
+        override_provider = model_config.phase1_provider if phase == 1 else model_config.phase2_provider
+        for a in agents:
+            a.model    = override_model
+            a.provider = override_provider
+
     agent_log = _log.bind_run(run_id)
     agent_log.info(f"Phase {phase} started | agents: {[a.name for a in agents]}")
     await queue.put({
@@ -80,6 +121,15 @@ async def _run_phase_parallel(
         "phase": phase,
         "agents": [a.name for a in agents],
     })
+
+    # Emit agent_log event before each agent is dispatched
+    for a in agents:
+        await queue.put({
+            "event": "agent_log",
+            "agent": a.name,
+            "phase": phase,
+            "model": a.model,
+        })
 
     tasks = [_run_agent_async(a, bundle, run_id, loop) for a in agents]
     results = []
@@ -107,6 +157,11 @@ async def _run_phase_parallel(
             "score": result["score"],
             "data_confidence": result["data_confidence"],
             "status": result["status"],
+            "summary": result.get("summary"),
+            "bull_points": result.get("bull_points", []),
+            "bear_points": result.get("bear_points", []),
+            "missing_fields": result.get("missing_fields", []),
+            "duration_ms": result.get("duration_ms"),
         })
         agent_log.info(
             f"Phase {phase} | {result['agent']} complete "
@@ -141,6 +196,7 @@ async def _run_pipeline(
     start_phase: int = 1,
     prior_bundle: Optional[dict] = None,
     prior_phase1_results: Optional[list] = None,
+    model_config: Optional[ModelConfig] = None,
 ) -> None:
     """Full 4-phase pipeline. Posts events to queue; puts a sentinel when done.
 
@@ -179,7 +235,8 @@ async def _run_pipeline(
 
             # ── Phase 1 ──────────────────────────────────────────────────────────
             phase1_results = await _run_phase_parallel(
-                PHASE1_AGENT_CLASSES, bundle, run_id, db, loop, queue, phase=1
+                PHASE1_AGENT_CLASSES, bundle, run_id, db, loop, queue, phase=1,
+                model_config=model_config,
             )
 
             # Abort rule: 2+ agents with minimal confidence
@@ -216,7 +273,8 @@ async def _run_pipeline(
 
         # ── Phase 2 ──────────────────────────────────────────────────────────────
         phase2_results = await _run_phase_parallel(
-            PHASE2_AGENT_CLASSES, bundle, run_id, db, loop, queue, phase=2
+            PHASE2_AGENT_CLASSES, bundle, run_id, db, loop, queue, phase=2,
+            model_config=model_config,
         )
         bundle["phase2_summaries"] = _build_summaries(phase2_results)
         await queue.put({
@@ -227,7 +285,9 @@ async def _run_pipeline(
 
         # ── Phase 3 — Debate ─────────────────────────────────────────────────────
         await queue.put({"event": "phase_start", "phase": 3, "agents": ["bull", "bear"]})
-        debate_gen = run_debate(bundle, run_id, db, loop)
+        debate_gen = run_debate(bundle, run_id, db, loop,
+                                debate_model=model_config.debate_model if model_config else None,
+                                debate_provider=model_config.debate_provider if model_config else None)
         debate_meta = {}
         async for event in debate_gen:
             await queue.put(event)
@@ -247,6 +307,15 @@ async def _run_pipeline(
         await queue.put({"event": "phase_start", "phase": 4,
                          "agents": ["portfolio_manager"]})
         pm = PortfolioManagerAgent()
+        if model_config is not None:
+            pm.model    = model_config.pm_model
+            pm.provider = model_config.pm_provider
+        await queue.put({
+            "event": "agent_log",
+            "agent": "portfolio_manager",
+            "phase": 4,
+            "model": pm.model,
+        })
         pm_result = await loop.run_in_executor(None, pm.run, bundle, run_id)
 
         db.save_agent_output(
@@ -267,6 +336,8 @@ async def _run_pipeline(
             "score": pm_result["score"],
             "data_confidence": pm_result["data_confidence"],
             "status": pm_result["status"],
+            "summary": pm_result.get("summary"),
+            "duration_ms": pm_result.get("duration_ms"),
         })
 
         raw = pm_result["raw_output"]
@@ -369,16 +440,23 @@ async def stream_analysis(
     ticker: str,
     db: Database,
     transcript_path: Optional[Path] = None,
+    model_config: Optional[ModelConfig] = None,
 ) -> AsyncGenerator[str, None]:
     """
     Async generator yielding SSE-formatted strings.
     Creates a run, starts the pipeline task, streams events until done.
     """
-    run_id = db.create_run(ticker, datetime.now().strftime("%Y-%m-%d"))
+    cfg = model_config or ModelConfig()
+    run_id = db.create_run(ticker, datetime.now().strftime("%Y-%m-%d"),
+                           phase1_model=cfg.phase1_model,
+                           phase2_model=cfg.phase2_model,
+                           debate_model=cfg.debate_model,
+                           pm_model=cfg.pm_model)
     db.update_run(run_id, status="running")
 
     queue: asyncio.Queue = asyncio.Queue()
-    asyncio.create_task(_run_pipeline(ticker, run_id, db, queue, transcript_path))
+    asyncio.create_task(_run_pipeline(ticker, run_id, db, queue, transcript_path,
+                                      model_config=cfg))
 
     # Emit the run_id first so the frontend can track it
     yield f"data: {json.dumps({'event': 'run_start', 'run_id': run_id, 'ticker': ticker})}\n\n"

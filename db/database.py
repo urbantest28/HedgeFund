@@ -14,6 +14,23 @@ class Database:
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA foreign_keys = ON")
         self._create_tables()
+        self._migrate()
+
+    def _migrate(self) -> None:
+        """Add columns introduced after initial schema creation (idempotent)."""
+        existing = {row[1] for row in
+                    self._conn.execute("PRAGMA table_info(analysis_runs)").fetchall()}
+        new_cols = [
+            ("phase1_model", "TEXT"),
+            ("phase2_model", "TEXT"),
+            ("debate_model", "TEXT"),
+            ("pm_model",     "TEXT"),
+        ]
+        for col, col_type in new_cols:
+            if col not in existing:
+                self._conn.execute(
+                    f"ALTER TABLE analysis_runs ADD COLUMN {col} {col_type}")
+        self._conn.commit()
 
     def _create_tables(self) -> None:
         self._conn.executescript("""
@@ -31,6 +48,8 @@ class Database:
             contested   INTEGER DEFAULT 0,
             bull_score  INTEGER, bear_score INTEGER,
             report_path TEXT, model_path TEXT,
+            phase1_model TEXT, phase2_model TEXT,
+            debate_model TEXT, pm_model     TEXT,
             created_at  TEXT DEFAULT (datetime('now'))
         );
         CREATE TABLE IF NOT EXISTS agent_outputs (
@@ -96,10 +115,16 @@ class Database:
         cur = self._conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
         return [r[0] for r in cur.fetchall()]
 
-    def create_run(self, ticker: str, run_date: str) -> int:
+    def create_run(self, ticker: str, run_date: str,
+                   phase1_model: Optional[str] = None,
+                   phase2_model: Optional[str] = None,
+                   debate_model: Optional[str] = None,
+                   pm_model: Optional[str] = None) -> int:
         cur = self._conn.execute(
-            "INSERT INTO analysis_runs (ticker, run_date) VALUES (?,?)",
-            (ticker, run_date)
+            """INSERT INTO analysis_runs
+               (ticker, run_date, phase1_model, phase2_model, debate_model, pm_model)
+               VALUES (?,?,?,?,?,?)""",
+            (ticker, run_date, phase1_model, phase2_model, debate_model, pm_model)
         )
         self._conn.commit()
         return cur.lastrowid
@@ -112,7 +137,8 @@ class Database:
     def update_run(self, run_id: int, **kwargs) -> None:
         allowed = {"status", "verdict", "score", "tier", "entry_low", "entry_high",
                    "stop_loss", "target_price", "thesis_id", "thesis_match",
-                   "contested", "bull_score", "bear_score", "report_path", "model_path"}
+                   "contested", "bull_score", "bear_score", "report_path", "model_path",
+                   "phase1_model", "phase2_model", "debate_model", "pm_model"}
         fields = {k: v for k, v in kwargs.items() if k in allowed}
         if not fields:
             return
